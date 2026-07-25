@@ -17,10 +17,16 @@ def _headers() -> dict[str, str]:
 
 class GeminiEmbeddingProvider:
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        # Model defaults to 3072 dims; pgvector HNSW caps at 2000, so pin the width.
         model = f"models/{settings.GEMINI_EMBEDDING_MODEL}"
         payload = {
             "requests": [
-                {"model": model, "content": {"parts": [{"text": text}]}} for text in texts
+                {
+                    "model": model,
+                    "content": {"parts": [{"text": text}]},
+                    "outputDimensionality": settings.EMBEDDING_DIM,
+                }
+                for text in texts
             ]
         }
         async with httpx.AsyncClient(base_url=_BASE_URL, timeout=120) as client:
