@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { AuthProvider } from "@/lib/auth";
 import "./globals.css";
 
 // Inter is the only font in the critical path. Display and mono are subset and
@@ -51,7 +52,7 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

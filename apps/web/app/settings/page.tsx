@@ -1,61 +1,83 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field } from "@/components/ui/input";
+import { ErrorNote } from "@/components/ui/states";
+import { api } from "@/lib/api";
+import { useAuth, useRequireAuth } from "@/lib/auth";
 
 export default function SettingsPage() {
+  const user = useRequireAuth();
+  const { signOut } = useAuth();
+  const [name, setName] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (user) setName(user.name ?? "");
+  }, [user]);
+
+  async function onSave(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await api.updateMe({ name });
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!user) return null;
+
   return (
     <AppShell title="Settings">
       <div className="mx-auto flex w-full max-w-[--layout-content-max] flex-col gap-6">
         <Card className="flex flex-col gap-4">
           <h2 className="text-h3 text-fg">Profile</h2>
-          <p className="text-body-sm text-fg-muted">
-            Shown on shared documents and in workspace member lists.
-          </p>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Display name" defaultValue="Brix Romero" name="name" />
+          <form onSubmit={onSave} className="flex flex-col gap-4">
+            <Field label="Email" value={user.email} readOnly />
             <Field
-              label="Email"
-              type="email"
-              name="email"
-              defaultValue="brix@example.com"
-              autoComplete="email"
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="How should we greet you?"
             />
-          </div>
-        </Card>
-
-        <Card className="flex flex-col gap-4">
-          <h2 className="text-h3 text-fg">Theme</h2>
-          <p className="text-body-sm text-fg-muted">
-            System, light or dark. Persisted to your account, not just this
-            browser.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {["System", "Light", "Dark"].map((m) => (
-              <Button key={m} variant={m === "System" ? "primary" : "secondary"}>
-                {m}
+            {error && <ErrorNote message={error} />}
+            {saved && (
+              <p role="status" className="text-body-sm text-success-fg">
+                Saved.
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button type="submit" size="md" disabled={busy}>
+                {busy ? "Saving…" : "Save"}
               </Button>
-            ))}
-          </div>
+            </div>
+          </form>
         </Card>
 
-        {/* Destructive actions are spatially separated from everything else */}
-        <section
-          aria-labelledby="danger"
-          className="flex flex-col gap-3 rounded-lg border border-danger bg-tint-danger p-6"
-        >
-          <h2 id="danger" className="text-h3 text-on-tint-danger">
-            Danger zone
-          </h2>
-          <p className="text-body-sm text-fg">
-            Deleting your account removes every document, chunk and conversation.
-            Export first — this cannot be undone.
+        <Card className="flex flex-col gap-3">
+          <h2 className="text-h3 text-fg">Session</h2>
+          <p className="measure text-body-sm text-fg-muted">
+            Signing out clears this device only. Access tokens stay valid until
+            they expire, because the API issues stateless tokens with no
+            revocation list.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary">Export everything first</Button>
-            <Button variant="destructive">Delete account</Button>
+          <div className="flex justify-start">
+            <Button variant="secondary" size="md" onClick={signOut}>
+              Sign out
+            </Button>
           </div>
-        </section>
+        </Card>
       </div>
     </AppShell>
   );

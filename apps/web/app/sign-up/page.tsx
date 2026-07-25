@@ -9,9 +9,10 @@ import { Field } from "@/components/ui/input";
 import { ErrorNote } from "@/components/ui/states";
 import { useAuth } from "@/lib/auth";
 
-export default function SignInPage() {
-  const { signIn, user } = useAuth();
+export default function SignUpPage() {
+  const { signUp, user } = useAuth();
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +27,10 @@ export default function SignInPage() {
     setError(null);
     setBusy(true);
     try {
-      await signIn(email, password);
+      await signUp(email, password, name);
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed.");
+      setError(err instanceof Error ? err.message : "Could not create the account.");
     } finally {
       setBusy(false);
     }
@@ -44,10 +45,21 @@ export default function SignInPage() {
             <Wordmark className="text-[1.25rem]" />
           </Link>
 
-          <h1 className="text-h1 text-fg">Welcome back</h1>
-          <p className="text-body text-fg-muted">Sign in to your vault.</p>
+          <h1 className="text-h1 text-fg">Create your vault</h1>
+          <p className="text-body text-fg-muted">
+            Everything you capture stays yours.
+          </p>
 
           <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+            <Field
+              label="Name"
+              name="name"
+              size="lg"
+              autoComplete="name"
+              placeholder="Optional"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
             <Field
               label="Email"
               type="email"
@@ -66,20 +78,21 @@ export default function SignInPage() {
               size="lg"
               required
               minLength={8}
-              autoComplete="current-password"
+              autoComplete="new-password"
+              helper="At least 8 characters. Longer beats complex."
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             {error && <ErrorNote message={error} />}
             <Button type="submit" size="lg" className="w-full" disabled={busy}>
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? "Creating…" : "Create account"}
             </Button>
           </form>
 
           <p className="text-center text-body-sm text-fg-subtle">
-            New here?{" "}
-            <Link href="/sign-up" className="text-primary-fg underline underline-offset-4">
-              Create an account
+            Already have a vault?{" "}
+            <Link href="/sign-in" className="text-primary-fg underline underline-offset-4">
+              Sign in
             </Link>
           </p>
         </div>
@@ -88,11 +101,11 @@ export default function SignInPage() {
       <aside className="hidden flex-col justify-center gap-6 bg-surface-brand px-16 lg:flex">
         <span aria-hidden className="h-1 w-[120px] rounded-sm gradient-brand" />
         <p className="text-display-2 text-fg">
-          Every answer cites the exact source chunk it came from.
+          Capture everything. Ask it anything.
         </p>
         <p className="measure text-body-lg text-fg-muted">
-          CortexVault answers only from your own corpus. If it is not in your
-          vault, it does not get said.
+          Notes, PDFs and bookmarks become one searchable memory — with a
+          citation behind every claim.
         </p>
       </aside>
     </div>

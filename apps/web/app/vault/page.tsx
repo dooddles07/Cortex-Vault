@@ -1,75 +1,140 @@
-import { AppShell } from "@/components/app-shell";
-import { Button } from "@/components/ui/button";
+"use client";
 
-const DOCS = [
-  { name: "acme-pricing-teardown.pdf", type: "PDF", date: "2026-07-21", size: "2,481 KB" },
-  { name: "retention-cohorts-2026.csv", type: "CSV", date: "2026-07-20", size: "184 KB" },
-  { name: "board-update-q3.md", type: "Note", date: "2026-07-19", size: "12 KB" },
-  { name: "interview-maya-pm.txt", type: "Note", date: "2026-07-18", size: "31 KB" },
-  { name: "pgvector-vs-qdrant", type: "Bookmark", date: "2026-07-17", size: "8 KB" },
-  { name: "ocr-scan-batch-14.pdf", type: "PDF", date: "2026-07-16", size: "9,120 KB" },
-  { name: "positioning-workshop.md", type: "Note", date: "2026-07-15", size: "24 KB" },
-] as const;
+import { useCallback, useEffect, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/input";
+import { EmptyState, ErrorNote, Spinner, ingestLabel } from "@/components/ui/states";
+import { UploadButton } from "@/components/upload-button";
+import { api, type Document } from "@/lib/api";
+import { useRequireAuth } from "@/lib/auth";
 
 export default function VaultPage() {
-  return (
-    <AppShell
-      title="Knowledge Base"
-      actions={
-        <>
-          <Button variant="secondary" size="md">
-            New note
-          </Button>
-          <Button size="md">Upload</Button>
-        </>
-      }
-    >
-      <div className="mx-auto flex w-full max-w-[--layout-content-max] flex-col gap-6">
-        <p className="text-body-sm text-fg-subtle">
-          126 documents · 1,204 chunks indexed · 3 pending
-        </p>
+  const user = useRequireAuth();
+  const [documents, setDocuments] = useState<Document[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [saving, setSaving] = useState(false);
 
-        {/* Wide content scrolls inside its own container so the page body never
-            scrolls sideways at 375px. */}
-        <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-          <table className="w-full min-w-[640px] border-collapse">
-            <caption className="sr-only">Documents in your vault</caption>
-            <thead>
-              <tr className="bg-bg-subtle">
-                {["Name", "Type", "Modified", "Size"].map((h, i) => (
-                  <th
-                    key={h}
-                    scope="col"
-                    aria-sort="none"
-                    className={`px-4 py-3 text-overline text-fg-subtle ${
-                      i === 3 ? "text-right" : "text-left"
-                    }`}
+  const load = useCallback(() => {
+    api
+      .documents({ limit: 50 })
+      .then((page) => setDocuments(page.items))
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    if (user) load();
+  }, [user, load]);
+
+  async function onCreate(event: React.FormEvent) {
+    event.preventDefault();
+    if (!title.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.createDocument({ title: title.trim(), content: content.trim(), type: "note" });
+      setTitle("");
+      setContent("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the note.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onTrash(id: string) {
+    await api.trashDocument(id);
+    load();
+  }
+
+  if (!user) return null;
+
+  return (
+    <AppShell title="Knowledge Base" actions={<UploadButton onUploaded={load} />}>
+      <div className="mx-auto flex w-full max-w-[--layout-content-max] flex-col gap-8">
+        <form
+          onSubmit={onCreate}
+          className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
+        >
+          <h2 className="text-h3 text-fg">New note</h2>
+          <Field
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="What is this about?"
+            required
+          />
+          <div className="flex flex-col gap-2">
+            <label htmlFor="note-body" className="text-label text-fg">
+              Content
+            </label>
+            <textarea
+              id="note-body"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={5}
+              placeholder="Paste or write anything. It is chunked and indexed on save."
+              className="w-full rounded-md border border-border-interactive bg-surface px-3 py-2 text-body text-fg placeholder:text-fg-subtle hover:border-border-strong"
+            />
+          </div>
+          {error && <ErrorNote message={error} />}
+          <div className="flex justify-end">
+            <Button type="submit" size="md" disabled={saving || !title.trim()}>
+              {saving ? "Saving…" : "Save note"}
+            </Button>
+          </div>
+        </form>
+
+        <section aria-labelledby="documents" className="flex flex-col gap-4">
+          <h2 id="documents" className="text-h2 text-fg">
+            Documents
+          </h2>
+
+          {!documents && !error && <Spinner label="Loading documents" />}
+
+          {documents?.length === 0 && (
+            <EmptyState
+              title="Nothing stored yet"
+              body="Write a note above or upload a PDF. Text is extracted, chunked and embedded automatically."
+            />
+          )}
+
+          {documents && documents.length > 0 && (
+            <ul className="overflow-hidden rounded-lg border border-border bg-surface">
+              {documents.map((doc) => {
+                const status = ingestLabel(doc.ingest_status);
+                return (
+                  <li
+                    key={doc.id}
+                    className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 last:border-b-0"
                   >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {DOCS.map((d) => (
-                <tr
-                  key={d.name}
-                  className="border-t border-border hover:bg-bg-subtle"
-                >
-                  <td className="px-4 py-3 text-body-sm text-fg">{d.name}</td>
-                  <td className="px-4 py-3 text-body-sm text-fg-muted">{d.type}</td>
-                  {/* Tabular figures so live updates never shift the grid */}
-                  <td className="tabular px-4 py-3 text-body-sm text-fg-muted">
-                    {d.date}
-                  </td>
-                  <td className="tabular px-4 py-3 text-right text-body-sm text-fg-muted">
-                    {d.size}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-label text-fg">{doc.title}</span>
+                      <span className="truncate text-caption text-fg-subtle">
+                        {doc.type} · {new Date(doc.updated_at).toLocaleString()}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <Badge tone={status.tone}>{status.tag}</Badge>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onTrash(doc.id)}
+                        aria-label={`Move ${doc.title} to trash`}
+                      >
+                        Trash
+                      </Button>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
     </AppShell>
   );

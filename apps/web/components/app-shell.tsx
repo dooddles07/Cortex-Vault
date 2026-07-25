@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Glyph, Wordmark } from "@/components/brand/glyph";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 
 const NAV = [
@@ -13,30 +14,23 @@ const NAV = [
   { href: "/settings", label: "Settings" },
 ] as const;
 
-function UsageMeter({ used = 420, cap = 1000 }: { used?: number; cap?: number }) {
-  const pct = Math.round((used / cap) * 100);
-  const tone =
-    pct >= 95 ? "bg-danger" : pct >= 80 ? "bg-warning" : "gradient-brand";
+/** The API has no quota concept, so the sidebar shows identity rather than an
+ * invented usage figure. */
+function AccountFooter() {
+  const { user, signOut } = useAuth();
+  if (!user) return null;
+
   return (
-    <div className="flex flex-col gap-2 px-2 pb-1">
-      <div className="flex items-center justify-between">
-        <span className="text-label text-fg">Vault usage</span>
-        {/* Value is always printed as text, never bar-only */}
-        <span className="tabular text-label text-fg">{pct}%</span>
-      </div>
-      <div
-        className="h-2 overflow-hidden rounded-full bg-bg-subtle"
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Vault usage"
+    <div className="flex flex-col gap-2 border-t border-border px-2 pb-1 pt-3">
+      <span className="truncate text-label text-fg">{user.name || "Signed in"}</span>
+      <span className="truncate text-caption text-fg-subtle">{user.email}</span>
+      <button
+        type="button"
+        onClick={signOut}
+        className="min-h-11 self-start text-label text-fg-muted underline underline-offset-4 hover:text-fg"
       >
-        <div className={cn("h-full rounded-full", tone)} style={{ width: `${pct}%` }} />
-      </div>
-      <p className="tabular text-caption text-fg-subtle">
-        {used.toLocaleString()} of {cap.toLocaleString()} chunks
-      </p>
+        Sign out
+      </button>
     </div>
   );
 }
@@ -102,7 +96,7 @@ export function AppShell({
         </nav>
 
         <div className="flex-1" />
-        <UsageMeter />
+        <AccountFooter />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
