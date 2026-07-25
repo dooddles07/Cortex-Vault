@@ -19,9 +19,11 @@ Both are deliberately minimal. Chat yields plain text deltas — no tool calls, 
 `registry.py` maps names to classes and resolves them independently:
 
 ```python
-CHAT_PROVIDER=gemini        # get_chat_provider()
-EMBEDDING_PROVIDER=gemini   # get_embedding_provider()
+CHAT_PROVIDER=gemini        # get_chat_provider()   — gemini | groq | openai | ollama
+EMBEDDING_PROVIDER=gemini   # get_embedding_provider() — gemini | openai | ollama
 ```
+
+Note the tables differ: **Groq is chat-only** and has no embeddings endpoint.
 
 Splitting these matters: embeddings run on every ingested document (high volume, cheap), chat runs per question (low volume, expensive). Free Gemini embeddings can pair with a paid chat provider without touching code.
 
@@ -65,6 +67,21 @@ Embeddings send `outputDimensionality` to force 768 (see [RAG.md](RAG.md) for wh
 ### OpenAI (`openai_provider.py`)
 
 Inactive but wired. The client is built lazily inside `_get_client()`, **not at module import**. This is load-bearing: `registry.py` imports every provider eagerly, so a module-level `AsyncOpenAI(api_key=None)` raises `OpenAIError` at import and crashes the entire app even when OpenAI is unused. That bug reached production once. Any new adapter must construct its client lazily.
+
+### Groq (`groq_provider.py`)
+
+**Chat only — Groq has no embeddings endpoint.** It is deliberately absent from the registry's `_EMBEDDING` table, so `EMBEDDING_PROVIDER=groq` fails at resolution with a message naming the supported set, rather than at the first ingestion.
+
+Groq exposes an OpenAI-compatible API, so the official OpenAI client is reused with `base_url=https://api.groq.com/openai/v1` instead of hand-rolled HTTP. The client is built lazily, same as OpenAI's.
+
+The intended pairing is Groq chat with Gemini embeddings — both free, and Groq's inference is substantially faster than Gemini Flash:
+
+```
+CHAT_PROVIDER=groq
+EMBEDDING_PROVIDER=gemini
+```
+
+One defensive detail: Groq occasionally emits a chunk with an empty `choices` array, which would raise an `IndexError` on `chunk.choices[0]`. The adapter skips those.
 
 ### Ollama (`ollama_provider.py`)
 

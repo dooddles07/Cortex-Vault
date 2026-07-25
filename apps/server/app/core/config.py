@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     GEMINI_CHAT_MODEL: str = "gemini-3.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 
+    # Groq is chat-only: it has no embeddings endpoint.
+    GROQ_API_KEY: str | None = None
+    GROQ_CHAT_MODEL: str = "llama-3.3-70b-versatile"
+
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_CHAT_MODEL: str = "llama3.1"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
