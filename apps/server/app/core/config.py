@@ -17,12 +17,23 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
-    EMBEDDING_PROVIDER: str = "openai"
-    EMBEDDING_DIM: int = 1536
+    # Chat and embeddings are chosen independently: free Gemini chat can pair
+    # with OpenAI embeddings, or any other mix.
+    CHAT_PROVIDER: str = "gemini"
+    EMBEDDING_PROVIDER: str = "gemini"
+    EMBEDDING_DIM: int = 768
+
     OPENAI_API_KEY: str | None = None
     OPENAI_CHAT_MODEL: str = "gpt-4.1-mini"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    GEMINI_API_KEY: str | None = None
+    GEMINI_CHAT_MODEL: str = "gemini-2.0-flash"
+    GEMINI_EMBEDDING_MODEL: str = "text-embedding-004"
+
     OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_CHAT_MODEL: str = "llama3.1"
+    OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 120

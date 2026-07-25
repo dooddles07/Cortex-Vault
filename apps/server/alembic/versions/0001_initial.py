@@ -9,12 +9,15 @@ import pgvector.sqlalchemy
 import sqlalchemy as sa
 from alembic import op
 
+from app.core.config import settings
+
 revision = "0001"
 down_revision = None
 branch_labels = None
 depends_on = None
 
-EMBEDDING_DIM = 1536
+# Dimension follows the configured provider: Gemini 768, OpenAI 1536.
+EMBEDDING_DIM = settings.EMBEDDING_DIM
 
 
 def upgrade() -> None:
