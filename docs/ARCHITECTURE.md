@@ -1,15 +1,17 @@
 # Architecture
 
+> **Status:** Implemented and deployed. This document describes the system as built, not as planned. An earlier revision described an all-TypeScript backend (Hono handlers inside Next.js route handlers, Node workers); that design was replaced by a standalone Python/FastAPI service before implementation. See [TECH-STACK.md](TECH-STACK.md) for why.
+
 ## Executive Summary
 
-CortexVault is a single Next.js application (frontend + API routes) backed by Postgres/pgvector, with async workers handling ingestion (parsing, OCR, chunking, embedding). Everything ships as one deployable unit at MVP scale; infra-heavy pieces (embeddings, OCR, transcription) are isolated behind a job queue from day one so they can be peeled into standalone services without touching the app layer.
+CortexVault is a Next.js frontend talking to a standalone FastAPI backend, backed by Postgres with pgvector. Ingestion (chunking and embedding) runs out-of-band in an arq worker so uploads never block on embedding generation. The API and the worker ship as **one Docker image** that picks its role from a `SERVICE_ROLE` environment variable.
 
 ## Goals
 
-- One deploy target (Vercel) at MVP; no premature microservices
-- Ingestion pipeline decoupled from the request/response cycle via a queue — uploads never block on OCR/embedding
-- Every AI answer traceable to source chunks (no ungrounded generation)
-- Scale path from single-tenant free tier to multi-tenant workspaces without a schema rewrite
+- Frontend and backend deploy and scale independently
+- Ingestion decoupled from the request/response cycle
+- Every AI answer traceable to source chunks — no ungrounded generation
+- Provider-agnostic AI: chat and embeddings chosen independently, swappable without touching business logic
 
 ## High-Level Architecture
 
@@ -17,218 +19,179 @@ CortexVault is a single Next.js application (frontend + API routes) backed by Po
 flowchart TB
     subgraph Client
         Web[Next.js Web App]
-        Ext[Browser Extension]
     end
 
-    subgraph Edge
-        CDN[Vercel CDN / Edge Network]
-        GW[API Gateway - Next.js Route Handlers]
+    subgraph API["FastAPI Service (SERVICE_ROLE=api)"]
+        Routers[Routers - app/api/v1]
+        Deps[Auth dependency - JWT bearer]
+        Services[Services - business logic]
+        RAG[RAG package]
     end
 
-    subgraph App["Application Layer"]
-        Auth[Better Auth]
-        API[API Services - Hono handlers]
-        RAG[RAG Pipeline]
+    subgraph Worker["FastAPI Image (SERVICE_ROLE=worker)"]
+        Arq[arq worker]
+        Ingest[ingest_document task]
     end
 
-    subgraph Data["Data Layer"]
-        PG[(Postgres - Supabase)]
-        VEC[(pgvector index)]
-        Cache[(Redis Cache)]
-        Store[(Supabase Storage - files)]
+    subgraph Data
+        PG[(Postgres + pgvector)]
+        Redis[(Redis - arq queue)]
     end
 
-    subgraph Async["Background Processing"]
-        Queue[[Job Queue - Redis/BullMQ]]
-        WorkIngest[Ingest Worker: parse/chunk]
-        WorkOCR[OCR Worker]
-        WorkEmbed[Embedding Worker]
+    subgraph External
+        Gemini[Google Gemini - chat + embeddings]
     end
 
-    subgraph External["External Services"]
-        LLM[LLM Providers - OpenAI/Gemini/OpenRouter/Ollama]
-        Embed[Embedding Provider]
-        Mail[Email - Resend]
-        Mon[Sentry + PostHog]
-    end
-
-    Web --> CDN --> GW
-    Ext --> GW
-    GW --> Auth
-    GW --> API
-    API --> RAG
-    API --> PG
-    API --> Cache
-    API --> Store
-    API --> Queue
-    Queue --> WorkIngest --> Store
-    WorkIngest --> WorkOCR
-    WorkIngest --> WorkEmbed
-    WorkEmbed --> Embed
-    WorkEmbed --> VEC
-    RAG --> VEC
+    Web -->|HTTPS + Bearer JWT| Routers
+    Routers --> Deps --> Services
+    Services --> RAG
+    Services --> PG
+    Services -->|enqueue| Redis
+    Redis --> Arq --> Ingest
+    Ingest --> RAG
+    Ingest --> PG
+    RAG --> Gemini
     RAG --> PG
-    RAG --> LLM
-    API --> Mail
-    App --> Mon
 ```
 
 ## Component Breakdown
 
 | Layer | Technology | Responsibility |
 |---|---|---|
-| Frontend | Next.js (App Router) + React + TypeScript | SSR shell, client interactivity, streaming chat UI |
-| API Gateway | Next.js Route Handlers | Auth check, rate limiting, request validation, routing to services |
-| Backend services | Hono (mounted inside route handlers) | Business logic: documents, folders, search, chat orchestration |
-| ORM | Prisma | Type-safe DB access, migrations |
-| Primary DB | Postgres (Supabase) | Users, documents, metadata, relational integrity |
-| Vector index | pgvector (same Postgres instance) | Embedding storage + cosine/HNSW similarity search |
-| Cache | Redis (Upstash) | Session cache, rate-limit counters, hot search results |
-| Object storage | Supabase Storage | Original files (PDFs, images, audio) |
-| Queue | Redis-backed (BullMQ) | Decouples upload from parse/OCR/embed |
-| Workers | Node workers (separate process/deployment) | Ingest, OCR (Tesseract/cloud OCR), embedding generation, transcript fetch |
-| Auth | Better Auth | Session/JWT issuance, OAuth, MFA |
-| AI providers | OpenAI, Gemini, OpenRouter, Ollama (local) | Chat completion, embeddings; provider-agnostic adapter |
-| Monitoring | Sentry | Error tracking, performance tracing |
-| Analytics | PostHog | Product usage, funnels |
-| Email | Resend (or equivalent) | Verification, notifications, digests |
-| CDN | Vercel Edge Network | Static assets, edge caching |
-| Deployment | Vercel (app) + Railway/Fly.io (workers) | Split so long-running workers don't fight serverless timeouts |
+| Frontend | Next.js 15 (App Router), React 19, Tailwind 4 | UI; calls the API via `NEXT_PUBLIC_API_URL` |
+| API | FastAPI (Python 3.12) | Routing, validation, auth, SSE streaming |
+| Auth | `bcrypt` + `python-jose` (HS256 JWT) | Password hashing, stateless bearer tokens |
+| ORM | SQLAlchemy 2.0 async + asyncpg | Type-annotated models, async sessions |
+| Migrations | Alembic (sync, psycopg2) | Schema versioning; runs on API boot |
+| Database | Postgres 17 + pgvector | Relational data, embeddings, full-text search |
+| Queue | Redis + arq | Decouples upload from chunk/embed |
+| AI | Google Gemini (adapters for OpenAI, Ollama) | Chat completion and embeddings |
+| Deploy | Railway (5 services) | web, api, worker, Postgres, Redis |
 
-## AI Pipeline — Ingestion (Data Flow)
-
-```mermaid
-flowchart LR
-    A[Upload/Clip/Import] --> B[Store raw file - Supabase Storage]
-    B --> C{Needs OCR?}
-    C -->|scanned PDF/image| D[OCR Worker]
-    C -->|text-native| E[Text Extraction]
-    D --> E
-    E --> F[Chunking - semantic + fixed-window hybrid]
-    F --> G[Metadata Extraction - entities, topics]
-    G --> H[Embedding Worker]
-    H --> I[(pgvector)]
-    G --> J[Auto-tag/folder suggestion]
-    J --> K[(Postgres documents)]
-```
-
-Full chunking/embedding parameters live in [RAG.md](RAG.md) once written; this diagram fixes the pipeline shape so worker contracts (queue payloads, retry semantics) can be built now.
-
-## AI Pipeline — Chat Request (Sequence)
+## Request Flow — Chat (SSE)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant W as Web App
-    participant API as API Gateway
-    participant R as RAG Service
-    participant V as pgvector
-    participant L as LLM Provider
+    participant A as FastAPI
+    participant PG as Postgres/pgvector
+    participant G as Gemini
 
     U->>W: Ask question
-    W->>API: POST /chat (SSE)
-    API->>API: Auth + rate limit check
-    API->>R: query + conversation context
-    R->>V: hybrid search (vector + keyword)
-    V-->>R: top-K chunks
-    R->>R: re-rank
-    R->>L: prompt + re-ranked context
-    L-->>R: streamed tokens
-    R-->>API: streamed tokens + citations
-    API-->>W: SSE stream
-    W-->>U: rendered answer with inline citations
+    W->>A: POST /api/v1/chat (Bearer JWT)
+    A->>A: Resolve user, load/create conversation
+    A->>PG: Persist user message
+    A->>PG: Vector search + full-text search
+    PG-->>A: Two ranked candidate sets
+    A->>A: Reciprocal rank fusion, take top N
+    A-->>W: event: citations
+    A->>G: systemInstruction + numbered context
+    G-->>A: streamed tokens
+    A-->>W: event: token (repeated)
+    A->>PG: Persist assistant message + citations
+    A-->>W: event: done
 ```
 
-## Failure Handling
+The citations event is emitted **before** any answer token, so the UI can render sources while the answer streams.
 
-| Failure | Handling |
-|---|---|
-| Embedding provider timeout/5xx | Job retried with exponential backoff (3 attempts), then dead-letter queue + user notification |
-| LLM provider outage | Automatic fallback to secondary provider (config-driven priority list); Ollama as last-resort local fallback |
-| OCR failure | Document marked `ingest_status=failed_ocr`, raw file still searchable via filename/metadata, user can retry |
-| Partial chunk embedding failure | Per-chunk retry, not whole-document; document usable with partial index + banner noting incomplete indexing |
-| Queue backlog | Priority lanes (interactive re-index > new upload > bulk import) so single large import doesn't starve chat latency |
+## Ingestion Flow
 
-## Rate Limiting
+```mermaid
+flowchart LR
+    A[POST /documents or /uploads] --> B[Row written, status=pending]
+    B --> C[Job row + arq enqueue]
+    C --> D[Worker: ingest_document]
+    D --> E[Delete existing chunks - idempotent]
+    E --> F[Paragraph-aware chunking]
+    F --> G[Batch embed - 64 per call]
+    G --> H[(chunks + vector)]
+    H --> I[status=indexed]
+```
 
-- Token-bucket per user at the API gateway (Redis-backed), scoped separately for: general API, AI chat, uploads
-- Free tier: stricter AI-message and upload-size caps; Pro/Team: higher ceilings; overage on metered plans logged to `usage_events` for billing
-- Per-IP limits on unauthenticated endpoints (auth, public share links) to blunt credential stuffing/scraping
+Re-ingesting a document deletes its chunks first, so the task is safe to retry. arq retries up to 3 times; a terminal failure writes the error onto the `jobs` row and sets `ingest_status=failed`.
 
-## Caching Strategy
+## The Single-Image, Two-Role Pattern
 
-- Redis: session lookups, rate-limit counters, last-N search results per user (short TTL)
-- HTTP cache headers + CDN edge caching for public/static assets and public share pages
-- Embedding cache: identical content hash skips re-embedding (dedupe on `content_hash`)
+`api` and `worker` are the same Docker image. `entrypoint.sh` branches on `SERVICE_ROLE`:
 
-## Scalability Strategy
+```sh
+if [ "$SERVICE_ROLE" = "worker" ]; then
+    exec arq app.workers.worker_settings.WorkerSettings
+fi
+alembic upgrade head
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+```
 
-| Stage | Approach |
-|---|---|
-| 0 → 10k users | Single Postgres (Supabase), single worker deployment, vertical scaling |
-| 10k → 100k users | Read replicas for search-heavy reads, dedicated worker fleet autoscaled on queue depth, pgvector HNSW tuning |
-| 100k+ users | Consider dedicated vector DB (Qdrant/Pinecone) if pgvector recall/latency ceiling hit; shard by workspace |
-| Enterprise/VPC | Isolated deployment per tenant or dedicated schema-per-tenant, optional on-prem workers |
+This exists because Railway resolves a service's config file relative to its root directory — both services read the same `apps/server/railway.json`, so they cannot declare different start commands there. Branching inside the image avoids needing a per-service dashboard override, keeping deployment reproducible from the repo.
 
-## Future Microservices Split
-
-Not done at MVP — called out here so boundaries are drawn correctly from the start:
-
-- **Embedding/OCR/transcription workers** — already isolated behind the queue; promote to their own repo/service when worker deploys need independent scaling from the ingest worker
-- **AI Gateway service** — if multi-provider routing/cost-optimization logic grows complex, extract from `packages/ai` into its own service with its own rate limits
-- **Search service** — only if/when vector DB is swapped out from pgvector to a dedicated engine
+Migrations run only on the API role, so concurrent workers never race on `alembic upgrade`.
 
 ## Project Structure
 
-Monorepo (Turborepo), so `apps/web` and `apps/workers` share `packages/*` without duplication.
-
 ```
-cortexvault/
-├── apps/
-│   ├── web/                 # Next.js app: UI + API route handlers
-│   │   ├── app/              # App Router pages/layouts/route handlers
-│   │   ├── components/       # App-specific composed components
-│   │   ├── features/         # Feature-sliced modules (chat/, documents/, search/...)
-│   │   ├── hooks/             # React hooks
-│   │   ├── server/            # Route handler business logic, calls services/
-│   │   ├── services/           # Orchestration: composes packages/{db,ai,auth}
-│   │   ├── lib/                 # App-local utilities
-│   │   ├── emails/               # React Email templates
-│   │   ├── public/                # Static assets
-│   │   └── types/                  # App-local types
-│   └── workers/               # Standalone worker process (ingest/OCR/embed/transcribe)
-│       └── src/jobs/
-├── packages/
-│   ├── db/                   # Prisma schema, client, migrations
-│   ├── ai/                    # RAG pipeline: chunking, embeddings, retrieval, prompts, provider adapters
-│   ├── auth/                   # Better Auth config + shared helpers
-│   ├── ui/                      # Shared shadcn/ui component library
-│   ├── utils/                    # Cross-package pure utilities
-│   └── config/                    # Shared eslint/tsconfig/tailwind/vitest config
-├── docs/                      # This blueprint
-├── scripts/                   # One-off/maintenance scripts (backfills, seed data)
-├── tests/                     # Playwright E2E suite
-└── turbo.json / pnpm-workspace.yaml
+apps/
+├── web/                    Next.js app
+└── server/                 FastAPI service
+    ├── app/
+    │   ├── main.py         App factory, CORS, /health
+    │   ├── core/           config, security, exceptions, logging
+    │   ├── db/             engine, session, declarative base + mixins
+    │   ├── models/         SQLAlchemy ORM models
+    │   ├── schemas/        Pydantic request/response models
+    │   ├── api/
+    │   │   ├── deps.py     DbSession, CurrentUser
+    │   │   └── v1/         one module per resource
+    │   ├── services/       business logic; routers stay thin
+    │   ├── rag/            chunking, embeddings, retrieval, prompts
+    │   │   └── providers/  Gemini / OpenAI / Ollama behind a Protocol
+    │   └── workers/        arq queue, tasks, worker settings
+    ├── alembic/            migrations
+    └── tests/
+packages/                   shared TS config for the web app
+docs/                       this documentation
 ```
 
-| Folder | Why it exists |
+| Boundary | Why |
 |---|---|
-| `apps/web` vs `apps/workers` | Serverless (Vercel, short timeout) can't run long OCR/embedding jobs — split deploy targets from day one |
-| `packages/db` | Single Prisma schema shared by web + workers, no drift |
-| `packages/ai` | RAG logic is the product's core IP — isolated so it's independently testable and swappable per provider |
-| `features/` (feature-sliced) | Scale UI code by domain (chat, documents, search) instead of by type, avoids giant shared `components/` |
-| `packages/config` | One source of truth for lint/type/style rules across apps and packages |
+| `api/v1` vs `services/` | Routers do HTTP concerns only; business logic stays testable without a client |
+| `rag/` isolated | Retrieval is the product's core IP — independently testable, provider-swappable |
+| `rag/providers/` behind `Protocol` | Adding a provider touches one file and a registry entry |
+| `schemas/` vs `models/` | Wire contract decoupled from storage; prevents accidental field exposure |
+
+## Failure Handling
+
+| Failure | Behavior |
+|---|---|
+| Embedding provider error | arq retries 3×; terminal failure writes `jobs.error`, document stays searchable by title |
+| Document with no content | `ingest_status=skipped_empty`, no job failure |
+| Re-ingest of existing document | Chunks deleted then rebuilt — idempotent |
+| Invalid/expired JWT | 401 with `WWW-Authenticate: Bearer` |
+| Cross-user resource access | 404, not 403 — avoids confirming the resource exists |
+
+## Known Gaps
+
+These are real limitations of the current build, not future ideas:
+
+- **No PDF or OCR extraction.** `POST /uploads` decodes text MIME types only; binaries are stored with null content and never chunked.
+- **No object storage.** `documents.file_path` exists but nothing writes to it.
+- **No rate limiting.** No token bucket at the API layer.
+- **No refresh tokens.** Access tokens last 7 days with no revocation path.
+- **No email verification or password reset**, despite `email_verified` existing on the model.
+- **Single-tenant.** No workspaces, sharing, or roles.
+
+## Scalability Path
+
+| Stage | Approach |
+|---|---|
+| Now | Single API replica, single worker, one Postgres |
+| Growth | Scale API replicas horizontally (stateless); scale workers on queue depth |
+| Larger | Postgres read replicas for search; tune HNSW `ef_search` |
+| Beyond pgvector | Swap `rag/retrieval.py` for a dedicated vector DB — the rest of the app is unaffected |
 
 ## Risks & Tradeoffs
 
-- **pgvector vs dedicated vector DB**: chosen for zero extra infra + free-tier friendliness; accepted tradeoff is a lower recall/latency ceiling than Pinecone/Qdrant at very large scale — mitigated by the swap-out path above
-- **Serverless app + separate worker deploy**: two deploy targets instead of one; accepted because long-running ingestion jobs are incompatible with Vercel function timeouts
-- **Single Postgres for relational + vector**: simpler ops, fewer moving parts; revisit only if data shows pgvector is the bottleneck, not preemptively
-
-## Checklist (pre-implementation)
-
-- [ ] Confirm Supabase project + pgvector extension enabled
-- [ ] Define BullMQ queue names/payload contracts before first worker is written
-- [ ] Provider adapter interface in `packages/ai` fixed before wiring OpenAI/Gemini/Ollama
-- [ ] Rate-limit keys/buckets defined before `/chat` ships
-- [ ] Turborepo pipeline (`build`/`dev`/`lint`/`test`) configured before second app is added
+- **Stateless JWT** — no server-side revocation. Acceptable while single-tenant; needs a session table or short-lived tokens + refresh before multi-user.
+- **pgvector over a dedicated vector DB** — one less service, no extra cost. Ceiling is lower at very large scale; the retrieval module is the swap point.
+- **HNSW index caps at 2000 dimensions** — this is why embeddings are pinned to 768 via `outputDimensionality`, not the provider default of 3072.
+- **Free-tier Gemini** — per-day request caps, and Google may train on free-tier API data. Fine for development; revisit before real user documents.
