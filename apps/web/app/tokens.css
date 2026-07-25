@@ -1,0 +1,239 @@
+/* CortexVault design tokens. Source of truth: docs/DESIGN.md section 8.
+   Mirrored 1:1 by the Figma variable collections (run cv-ds-2026-07-25).
+   Layer order: primitive -> semantic -> component. Components never read primitives. */
+
+:root {
+  /* ---- primitives: indigo (hue 246, 600 pinned to brand) ---- */
+  --indigo-50: #f1f0ff;
+  --indigo-100: #e3e0ff;
+  --indigo-200: #c9c3fe;
+  --indigo-300: #a69dfb;
+  --indigo-400: #7d6ff6;
+  --indigo-500: #6555f1;
+  --indigo-600: #4c3aed;
+  --indigo-700: #311edc;
+  --indigo-800: #2e20ac;
+  --indigo-900: #2a2183;
+  --indigo-950: #1b1551;
+
+  /* ---- primitives: cyan (hue 188, 400 pinned to brand) ---- */
+  --cyan-50: #ecfeff;
+  --cyan-100: #cffafe;
+  --cyan-200: #a5f3fc;
+  --cyan-300: #67e8f9;
+  --cyan-400: #22d3ee;
+  --cyan-500: #06b6d4;
+  --cyan-600: #0891b2;
+  --cyan-700: #0e7490;
+  --cyan-800: #155e75;
+  --cyan-900: #164e63;
+  --cyan-950: #083344;
+
+  /* ---- primitives: neutral (cool violet-grey, anchored to Void/Ink/Mist/Paper) ---- */
+  --neutral-0: #ffffff;
+  --neutral-25: #f8f8fc;
+  --neutral-50: #f2f2f7;
+  --neutral-100: #eaeaf1;
+  --neutral-200: #d6d6e1;
+  --neutral-300: #bab9ca;
+  --neutral-400: #9f9eb3;
+  --neutral-500: #8b8aa3;
+  --neutral-600: #6e6c89;
+  --neutral-700: #4e4c67;
+  --neutral-750: #343248;
+  --neutral-800: #211f33;
+  --neutral-900: #151320;
+  --neutral-950: #0b0b14;
+  --neutral-1000: #05050a;
+
+  /* ---- primitives: status ---- */
+  --green-700: #15803d;
+  --green-800: #166534;
+  --green-400: #4ade80;
+  --amber-700: #b45309;
+  --amber-800: #92400e;
+  --amber-400: #fbbf24;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+  --red-400: #f87171;
+
+  /* ---- gradients ---- */
+  --gradient-brand: linear-gradient(135deg, var(--indigo-600) 0%, var(--cyan-400) 100%);
+  --gradient-brand-safe: linear-gradient(135deg, var(--indigo-600) 0%, var(--indigo-400) 100%);
+
+  /* ---- semantic: light ---- */
+  --bg: var(--neutral-25);
+  --bg-subtle: var(--neutral-50);
+  --surface: var(--neutral-0);
+  --surface-raised: var(--neutral-0);
+  --surface-brand: var(--indigo-50);
+  --fg: var(--neutral-900);
+  --fg-muted: var(--neutral-700);
+  --fg-subtle: var(--neutral-600);
+  --fg-disabled: var(--neutral-400);
+  --fg-on-primary: #ffffff;
+  --fg-on-accent: var(--cyan-950);
+  --icon: var(--neutral-700);
+  --icon-subtle: var(--neutral-500);
+  --border: var(--neutral-200);
+  --border-interactive: var(--neutral-500);
+  --border-strong: var(--neutral-600);
+  --primary: var(--indigo-600);
+  --primary-hover: var(--indigo-700);
+  --primary-fg: var(--indigo-600);
+  --accent: var(--cyan-400);
+  --accent-fg: var(--cyan-700);
+  --success: var(--green-700);
+  --warning: var(--amber-700);
+  --danger: var(--red-600);
+  --info: var(--cyan-700);
+  --ring: var(--indigo-600);
+  --scrim: rgb(11 11 20 / 0.48);
+
+  /* tonal fills: 12% in light */
+  --tint-success: rgb(21 128 61 / 0.12);
+  --tint-warning: rgb(180 83 9 / 0.12);
+  --tint-danger: rgb(220 38 38 / 0.12);
+  --tint-info: rgb(14 116 144 / 0.12);
+  --tint-accent: rgb(14 116 144 / 0.12);
+  --tint-brand: rgb(76 58 237 / 0.12);
+  --tint-neutral: rgb(110 108 137 / 0.12);
+
+  /* text on a tonal fill. Verified against the COMPOSITED tint, not --bg.
+     A 12% tint costs 0.3-0.6 of a ratio point, so these are stepped darker
+     than the plain status tokens above. See docs/DESIGN.md rule T1. */
+  --on-tint-success: var(--green-800);
+  --on-tint-warning: var(--amber-800);
+  --on-tint-danger: var(--red-700);
+  --on-tint-accent: var(--cyan-800);
+  --on-tint-info: var(--cyan-800);
+  --on-tint-brand: var(--indigo-600);
+  --on-tint-neutral: var(--neutral-700);
+
+  /* chart series, fixed order, never cycled */
+  --chart-series-1: var(--indigo-600);
+  --chart-series-2: var(--amber-700);
+  --chart-series-3: var(--cyan-600);
+  --chart-series-4: var(--green-700);
+
+  /* ---- spacing (4px base) ---- */
+  --spacing-0: 0px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+
+  /* ---- radius ---- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ---- control + layout sizing ---- */
+  --size-control-sm: 32px;
+  --size-control-md: 40px;
+  --size-control-lg: 48px;
+  --size-touch-min: 44px;
+  --layout-sidebar: 260px;
+  --layout-sidebar-collapsed: 64px;
+  --layout-source-pane: 420px;
+  --layout-chat-max: 768px;
+  --layout-content-max: 1280px;
+
+  /* ---- elevation ---- */
+  --elevation-1: 0 1px 2px rgb(20 19 31 / 0.06), 0 1px 3px rgb(20 19 31 / 0.04);
+  --elevation-2: 0 4px 8px rgb(20 19 31 / 0.06), 0 2px 4px rgb(20 19 31 / 0.04);
+  --elevation-3: 0 12px 24px rgb(20 19 31 / 0.1), 0 4px 8px rgb(20 19 31 / 0.06);
+  --elevation-4: 0 24px 48px rgb(20 19 31 / 0.16), 0 8px 16px rgb(20 19 31 / 0.08);
+
+  /* ---- motion ---- */
+  --duration-instant: 100ms;
+  --duration-fast: 160ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+  --duration-page: 400ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0, 1);
+  --ease-in: cubic-bezier(0.3, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- z-index scale ---- */
+  --z-sticky: 10;
+  --z-header: 20;
+  --z-drawer: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-palette: 80;
+  --z-tooltip: 90;
+}
+
+.dark,
+[data-theme="dark"] {
+  --bg: var(--neutral-950);
+  --bg-subtle: var(--neutral-1000);
+  --surface: var(--neutral-900);
+  --surface-raised: var(--neutral-800);
+  --surface-brand: var(--indigo-950);
+  --fg: var(--neutral-50);
+  --fg-muted: var(--neutral-300);
+  --fg-subtle: var(--neutral-500);
+  --fg-disabled: var(--neutral-600);
+  --icon: var(--neutral-300);
+  --icon-subtle: var(--neutral-500);
+  --border: var(--neutral-750);
+  --border-interactive: var(--neutral-600);
+  --border-strong: var(--neutral-500);
+  --primary: var(--indigo-600);
+  --primary-hover: var(--indigo-500);
+  --primary-fg: var(--indigo-400);
+  --accent: var(--cyan-400);
+  --accent-fg: var(--cyan-400);
+  --success: var(--green-400);
+  --warning: var(--amber-400);
+  --danger: var(--red-400);
+  --info: var(--cyan-400);
+  /* indigo-600 on Void measures 2.4:1 and fails the 3:1 focus minimum */
+  --ring: var(--cyan-400);
+  --scrim: rgb(5 5 10 / 0.64);
+
+  /* dark surfaces need the heavier alpha to read at equal perceived strength */
+  --tint-success: rgb(74 222 128 / 0.18);
+  --tint-warning: rgb(251 191 36 / 0.18);
+  --tint-danger: rgb(248 113 113 / 0.18);
+  --tint-info: rgb(34 211 238 / 0.18);
+  --tint-accent: rgb(34 211 238 / 0.18);
+  --tint-brand: rgb(125 111 246 / 0.18);
+  --tint-neutral: rgb(139 138 163 / 0.18);
+
+  --on-tint-success: var(--green-400);
+  --on-tint-warning: var(--amber-400);
+  --on-tint-danger: var(--red-400);
+  --on-tint-accent: var(--cyan-400);
+  --on-tint-info: var(--cyan-400);
+  --on-tint-brand: var(--indigo-300);
+  --on-tint-neutral: var(--neutral-400);
+
+  --chart-series-1: var(--indigo-400);
+  --chart-series-2: #d97706;
+  --chart-series-3: var(--cyan-600);
+  --chart-series-4: #16a34a;
+
+  /* shadows are near-invisible on Void, so dark depth is surface tint + hairline */
+  --elevation-1: none;
+  --elevation-2: none;
+  --elevation-3: 0 12px 24px rgb(5 5 10 / 0.56), 0 4px 8px rgb(5 5 10 / 0.4);
+  --elevation-4: 0 24px 48px rgb(5 5 10 / 0.64), 0 8px 16px rgb(5 5 10 / 0.48);
+}

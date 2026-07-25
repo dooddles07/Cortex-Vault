@@ -168,8 +168,72 @@ The categorical palette is validated by the `dataviz` six-check script (lightnes
 
 ---
 
-## 8. Open items
+## 8. Implementation
+
+P0 screens are built in `apps/web` per the [ARCHITECTURE.md](ARCHITECTURE.md) structure: Turborepo + pnpm workspaces, Next.js App Router, React 19, TypeScript, Tailwind v4.
+
+| Route | Screen | File |
+|---|---|---|
+| `/` | Landing + pricing (dark) | `apps/web/app/page.tsx` |
+| `/sign-in` | Auth | `apps/web/app/sign-in/page.tsx` |
+| `/dashboard` | Home | `apps/web/app/dashboard/page.tsx` |
+| `/vault` | Knowledge Base | `apps/web/app/vault/page.tsx` |
+| `/chat` | Chat + citations | `apps/web/app/chat/page.tsx` |
+| `/search` | Search + filters | `apps/web/app/search/page.tsx` |
+| `/settings` | Settings + danger zone | `apps/web/app/settings/page.tsx` |
+| `*` | 404 | `apps/web/app/not-found.tsx` |
+
+Tokens live in `apps/web/app/tokens.css` — a direct transcription of [DESIGN.md](DESIGN.md) §8, mirrored 1:1 by the Figma variables. `globals.css` maps **only the semantic layer** into Tailwind's `@theme`, so components cannot reach a primitive.
+
+### Figma → code pairing
+
+Code Connect requires a Dev or Full seat on an **Organization or Enterprise** plan; this team is on Professional, so the `.figma.ts` templates could not be created. Two things carry the handoff in the meantime:
+
+- All 194 Figma variables already have WEB `codeSyntax` set (`var(--fg-muted)` etc.), so Dev Mode emits the real CSS variable names on any plan.
+- Every component set's description now ends with a `CODE:` line naming the implementing file and props.
+
+| Figma component | Code |
+|---|---|
+| `Button` | `components/ui/button.tsx` — `variant`, `size`, `loading` |
+| `Input` | `components/ui/input.tsx` — `<Field label size error helper readOnly>` |
+| `Badge` | `components/ui/badge.tsx` — `tone` |
+| `Card` | `components/ui/card.tsx` — `interactive` |
+| `Nav Item` · `Usage Meter` | `components/app-shell.tsx` |
+| `Table Row` · `Tab` | `app/vault/page.tsx` |
+| `Citation Chip` · `Message` | `app/chat/page.tsx` |
+| `Brand / Glyph` | `components/brand/glyph.tsx` |
+| `Dialog` · `Upload Dropzone` · `Ingest Progress` · `Empty State` | not yet implemented |
+
+Converting to real Code Connect after a plan upgrade is mechanical: the variant axes were deliberately built to mirror the code props.
+
+---
+
+## 9. Browser verification
+
+`tests/e2e/screens.spec.ts`, run across three projects — desktop 1440, tablet 768, and **Pixel 7** (a real device descriptor, so `pointer: coarse` actually applies and the 44px touch promotion is exercised rather than silently skipped).
+
+**40 passed, 0 failed.**
+
+Per route (8 routes × 3 viewports): no console or runtime errors, no horizontal page scroll, a `main` landmark and an `h1` present, plus a full-page screenshot. Cross-cutting: skip link is first in tab order and targets `#main`; focus ring resolves to a real `box-shadow`; every input has an associated visible label; numeric table cells compute `tabular-nums`; mobile controls clear 44px; dark mode resolves Void `#0b0b14` and a **cyan** focus ring rather than an inverted light palette.
+
+### Defects browser verification caught
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | **`tailwind-merge` silently dropped the type ramp.** It doesn't know custom utilities, so it classified `text-label` as a *colour* and removed it whenever `text-fg` followed in the same `cn()` call — nav labels rendered at 16px instead of 14px | Registered the ramp as a `font-size` class group via `extendTailwindMerge` in `lib/cn.ts` |
+| 2 | Mobile header logo link was a 24px tap target | Wrapped to `size-11` with an `aria-label` |
+| 3 | `favicon.ico` 404 on every page load | Added `app/icon.png` and `app/apple-icon.png` |
+| 4 | Invalid HTML: `<a>` nested inside `<button>` on the 404 page | Replaced with styled `Link`s |
+
+The first one is worth noting: it was invisible in code review and invisible in the build — only a computed-style assertion in a real browser exposed it, and it silently degraded every `cn()` call that combined a type utility with a text colour.
+
+---
+
+## 10. Open items
 
 - **Brand asset inconsistency.** `favicon.png` and `app-icon.png` carry a visibly different, heavier brain drawing than `icon.png` / `logo-primary.png`. The design system is built from the thin gradient mark used by the primary logo. Reconciling the set is brand work, not covered here.
-- P1/P2 screens are Figma-only by scope: Version history, Sharing, Workspace members, Notifications, Audit log table, Saved searches.
-- Code implementation and Playwright verification (phases 7–8) and Code Connect mapping (phase 9) are not started.
+- **Code Connect is blocked by plan tier** — needs a Dev/Full seat on Organization or Enterprise. Variable code syntax and component `CODE:` descriptions cover the handoff until then.
+- P1/P2 screens stay Figma-only by scope: Version history, Sharing, Workspace members, Notifications, Audit log table, Saved searches.
+- Designed but not yet coded: Dialog/Sheet, Upload Dropzone, Ingest Progress, Empty State, command palette overlay, citation source pane, and the per-screen empty/loading/error variants (the happy path ships first).
+- No backend: screens render static fixtures. Nothing in `packages/db`, `packages/ai`, `packages/auth` or `apps/workers` exists yet.
+- The glyph SVG is 47 KB (~15 KB gzipped) at IoU 0.926 against the source raster. A hand-drawn vector would be smaller and cleaner; this is the best a trace of a 295px PNG can do.
