@@ -35,8 +35,9 @@ def _migrated_database():
         return
 
     import sqlalchemy
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     admin = sqlalchemy.create_engine(admin_url(), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:

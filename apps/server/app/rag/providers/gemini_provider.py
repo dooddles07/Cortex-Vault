@@ -42,14 +42,16 @@ class GeminiChatProvider:
         payload = _to_gemini_payload(messages)
         model = f"models/{settings.GEMINI_CHAT_MODEL}"
 
-        async with httpx.AsyncClient(base_url=_BASE_URL, timeout=None) as client:
-            async with client.stream(
+        async with (
+            httpx.AsyncClient(base_url=_BASE_URL, timeout=None) as client,
+            client.stream(
                 "POST",
                 f"/{model}:streamGenerateContent",
                 params={"alt": "sse"},
                 json=payload,
                 headers=_headers(),
-            ) as response:
+            ) as response,
+        ):
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if not line.startswith("data:"):

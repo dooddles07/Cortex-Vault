@@ -8,7 +8,9 @@ Rules:
 """
 
 
-def build_messages(question: str, contexts: list[str], history: list[dict[str, str]]) -> list[dict[str, str]]:
+def build_messages(
+    question: str, contexts: list[str], history: list[dict[str, str]]
+) -> list[dict[str, str]]:
     numbered = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts))
     return [
         {"role": "system", "content": SYSTEM_PROMPT},

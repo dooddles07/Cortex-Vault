@@ -49,7 +49,7 @@ Voice notes with transcription · email ingestion · SSO/SAML · MFA · knowledg
 
 Ordered by risk, not effort.
 
-1. **No integration tests and no CI.** `main` deploys unguarded. Two runtime bugs reached production that a single import test would have caught. See [TESTING.md](TESTING.md).
+1. **CI runs but does not gate deploys.** GitHub Actions runs lint, the full test suite against a real pgvector Postgres, and the web build — but Railway deploys on push regardless of the result. Enable "Wait for CI" on each service to close the gap. See [TESTING.md](TESTING.md).
 2. **No error tracking.** Failures are only visible in ephemeral Railway logs.
 3. **No staging environment.**
 4. **Token revocation.** Stateless JWTs valid 7 days; rotating `JWT_SECRET` is the only global sign-out.

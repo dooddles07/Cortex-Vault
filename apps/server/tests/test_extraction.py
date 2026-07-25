@@ -1,5 +1,4 @@
 import io
-import zlib
 
 from app.rag.extraction import extract_text
 

@@ -61,13 +61,27 @@ The smoke layer is the highest value per line: `test_app_imports_without_optiona
 
 Each integration module is anchored to a regression that reached production — the docstrings name which one.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`, in two parallel jobs:
+
+| Job | Steps |
+|---|---|
+| **Server** | `ruff check` → `pytest` against a real `pgvector/pgvector:pg17` service container |
+| **Web** | `pnpm typecheck` → `pnpm build` |
+
+The Postgres service is the point: **CI is where the integration suite actually runs.** Locally it skips unless Docker is up, so a green local run proves less than it looks like. Check the skip count.
+
+No provider keys are set in CI. The autouse `fake_providers` fixture means that is correct — a test that reaches for a real API fails loudly instead of quietly spending quota.
+
+Ruff's rule set is pinned explicitly in `pyproject.toml` (`E`, `F`, `I`, `B`, `SIM`, `UP`, ignoring `B008` because `Depends()`/`File()` in argument defaults is the FastAPI idiom). Without pinning, a ruff upgrade can change the default rule set and turn CI red on untouched code.
+
 ## Gaps
 
-- **The integration suite has not yet been run against a live database.** It was written after the fixes it covers were verified by hand against production; expect to iterate on the first `docker compose up` run.
-- **No CI.** Tests are not run automatically; `main` deploys without gating.
 - **Redis itself is never exercised** — `inline_worker` bypasses the queue, so enqueue/consume behavior is untested.
 - **No coverage measurement.**
 - **Playwright suite targets the web app only** and does not cover the API.
+- **CI does not gate deploys.** Railway deploys on push independently of the workflow result; a red build still ships. Enable "Wait for CI" in the service settings to change that.
 
 ## Manual verification of a deployment
 

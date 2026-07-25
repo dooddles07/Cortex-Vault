@@ -42,6 +42,11 @@ include = ["app*"]
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "SIM", "UP"]
+# B008: Depends()/File() in argument defaults is the FastAPI idiom.
+ignore = ["B008"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

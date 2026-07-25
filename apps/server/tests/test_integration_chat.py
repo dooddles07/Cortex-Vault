@@ -136,5 +136,6 @@ def test_conversation_is_scoped_to_its_owner(client, auth, inline_worker):
     _, events = _chat(client, owner, "What merges the arms?")
     conversation_id = next(p for n, p in events if n == "done")["conversation_id"]
 
-    assert client.get(f"/api/v1/conversations/{conversation_id}", headers=stranger).status_code == 404
+    stolen = client.get(f"/api/v1/conversations/{conversation_id}", headers=stranger)
+    assert stolen.status_code == 404
     assert client.get("/api/v1/conversations", headers=stranger).json() == []

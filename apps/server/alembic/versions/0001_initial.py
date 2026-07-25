@@ -7,8 +7,8 @@ Create Date: 2026-07-25
 """
 import pgvector.sqlalchemy
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 from app.core.config import settings
 
 revision = "0001"

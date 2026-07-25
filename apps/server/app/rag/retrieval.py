@@ -62,7 +62,11 @@ async def _keyword_search(
     stmt = (
         select(Chunk.id, Chunk.document_id, Document.title, Chunk.content, rank.label("r"))
         .join(Document, Document.id == Chunk.document_id)
-        .where(Chunk.user_id == user_id, Document.deleted_at.is_(None), ts_vector.op("@@")(ts_query))
+        .where(
+            Chunk.user_id == user_id,
+            Document.deleted_at.is_(None),
+            ts_vector.op("@@")(ts_query),
+        )
         .order_by(rank.desc())
         .limit(top_k)
     )

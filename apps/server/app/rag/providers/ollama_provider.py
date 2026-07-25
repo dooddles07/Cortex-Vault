@@ -24,10 +24,11 @@ class OllamaChatProvider:
         self.model = model
 
     async def stream(self, messages: list[dict[str, str]]) -> AsyncIterator[str]:
-        async with httpx.AsyncClient(base_url=settings.OLLAMA_BASE_URL, timeout=None) as client:
-            async with client.stream(
-                "POST", "/api/chat", json={"model": self.model, "messages": messages, "stream": True}
-            ) as response:
+        payload = {"model": self.model, "messages": messages, "stream": True}
+        async with (
+            httpx.AsyncClient(base_url=settings.OLLAMA_BASE_URL, timeout=None) as client,
+            client.stream("POST", "/api/chat", json=payload) as response,
+        ):
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if not line:
