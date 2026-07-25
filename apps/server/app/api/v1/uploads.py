@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.limits import UploadLimit
 from app.core.config import settings
 from app.rag.extraction import extract_text
 from app.schemas.document import DocumentCreate
@@ -26,7 +27,12 @@ async def _read_capped(file: UploadFile, max_bytes: int) -> bytes:
     return bytes(buffer)
 
 
-@router.post("", response_model=UploadAccepted, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "",
+    response_model=UploadAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[UploadLimit],
+)
 async def upload(user: CurrentUser, db: DbSession, file: UploadFile = File(...)) -> UploadAccepted:
     raw = await _read_capped(file, settings.MAX_UPLOAD_BYTES)
     filename = file.filename or "Untitled"

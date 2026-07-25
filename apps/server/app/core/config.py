@@ -42,5 +42,11 @@ class Settings(BaseSettings):
 
     MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
 
+    # Requests per minute. Auth is per IP; the rest are per user.
+    RATE_LIMIT_AUTH: int = 10
+    RATE_LIMIT_CHAT: int = 20
+    RATE_LIMIT_UPLOAD: int = 20
+    RATE_LIMIT_SEARCH: int = 60
+
 
 settings = Settings()  # type: ignore[call-arg]

@@ -34,7 +34,27 @@ Pydantic validates every request body and query parameter; unknown fields are re
 
 SQLAlchemy parameterizes all queries — including the full-text arm, where the query string is bound via `plainto_tsquery` rather than interpolated.
 
-CORS is an explicit allowlist from `CORS_ORIGINS`. It is currently permissive on methods and headers, and `allow_credentials=True` — acceptable only because the allowlist is narrow. Do not widen it to `*`.
+CORS is an explicit allowlist from `CORS_ORIGINS`, restricted to the methods and headers the app actually uses, with `allow_credentials=True`. Do not widen it to `*`.
+
+## Rate limiting
+
+Redis-backed fixed-window counters, applied per route. Auth keys on IP (there is no user yet); everything else keys on user id, so one user cannot exhaust another's budget by sharing an egress IP.
+
+| Route | Limit / minute | Keyed on | Why |
+|---|---|---|---|
+| `/auth/sign-in`, `/auth/sign-up` | `RATE_LIMIT_AUTH` (10) | IP | Brute force and account-enumeration |
+| `/chat` | `RATE_LIMIT_CHAT` (20) | User | Embeds, retrieves, and calls an LLM — the costliest path |
+| `/uploads` | `RATE_LIMIT_UPLOAD` (20) | User | Parsing plus embedding cost |
+| `/search` | `RATE_LIMIT_SEARCH` (60) | User | Embeds the query |
+
+Exceeding a limit returns `429` with `Retry-After`.
+
+Two deliberate tradeoffs:
+
+- **Fixed window, not sliding.** One `INCR` plus one `EXPIRE` per request instead of a per-request sorted set. The cost is burstiness at a window boundary — up to 2× the limit across two adjacent windows. Acceptable for abuse control, not for hard quota enforcement.
+- **Fails open.** If Redis is unreachable the request is allowed and a warning is logged. Losing the API is worse than losing the limiter, but it does mean **a Redis outage removes rate limiting entirely**.
+
+The IP is read from `X-Forwarded-For` because Railway terminates TLS upstream. That header is client-controlled and only trustworthy because the platform overwrites it — if the API is ever exposed without that proxy in front, per-IP limits become spoofable.
 
 ## Gaps
 
@@ -42,7 +62,6 @@ CORS is an explicit allowlist from `CORS_ORIGINS`. It is currently permissive on
 
 | Gap | Risk |
 |---|---|
-| **No rate limiting anywhere** | Sign-in is brute-forceable; `/chat` and `/uploads` are unbounded cost amplifiers |
 | **No token revocation** | A leaked token is valid for its full 7 days. No sign-out, no refresh, no session table |
 | **No email verification** | `email_verified` exists on the model but nothing sets it — anyone can register any address |
 | **No password reset** | Account lockout is permanent |

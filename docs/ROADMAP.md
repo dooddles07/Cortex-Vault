@@ -27,7 +27,7 @@ These are specified as P0 in [FEATURES.md](FEATURES.md) but not built.
 | **OCR** | Scanned PDFs and images yield nothing; detected and flagged, but never indexed | Tesseract or a cloud OCR call; slow, belongs in the worker |
 | **Office formats** | `.docx`, `.pptx`, `.xlsx` store as `unsupported` | `python-docx` / `python-pptx` extractors |
 | **Object storage** | `documents.file_path` exists but nothing writes files anywhere | Originals are discarded after text extraction |
-| **Rate limiting** | Sign-in is brute-forceable; `/chat` is an unbounded cost amplifier | See [SECURITY.md](SECURITY.md) |
+| ~~Rate limiting~~ | **Done.** Redis fixed-window limits on auth, chat, uploads and search | Fails open if Redis is down — see [SECURITY.md](SECURITY.md) |
 | **Upload size limit** | `file.read()` loads the whole body into memory | Trivial DoS |
 | **Email verification & password reset** | `email_verified` exists; nothing sets it. Lockout is permanent | Needs an email provider |
 | **Bookmark saver** | P0 capture path; no endpoint | Fetch + readability extraction |

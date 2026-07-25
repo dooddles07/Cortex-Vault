@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.core.rate_limit import close_redis
 from app.workers.queue import close_pool
 
 configure_logging()
@@ -16,6 +17,7 @@ configure_logging()
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
     await close_pool()
+    await close_redis()
 
 
 app = FastAPI(title="CortexVault API", version="0.1.0", docs_url="/docs", lifespan=lifespan)

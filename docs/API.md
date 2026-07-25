@@ -15,6 +15,20 @@ Interactive schema: `/docs` (Swagger UI) · machine-readable: `/openapi.json`
 | Timestamps | ISO 8601, UTC |
 | Missing / not-yours | `404` — cross-user access is not distinguished from nonexistent |
 | Validation errors | `422` with Pydantic's error array |
+| Rate limited | `429` with `Retry-After` (seconds until the window resets) |
+
+## Rate limits
+
+Per minute, fixed window. Auth is keyed on IP; the rest on user id.
+
+| Route | Limit |
+|---|---|
+| `/auth/sign-in`, `/auth/sign-up` | 10 |
+| `/chat` | 20 |
+| `/uploads` | 20 |
+| `/search` | 60 |
+
+All are configurable via `RATE_LIMIT_*` environment variables. See [SECURITY.md](SECURITY.md) for the fixed-window and fail-open tradeoffs.
 
 ## System
 
