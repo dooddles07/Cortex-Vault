@@ -55,6 +55,13 @@ async def create_document(
     return doc
 
 
+async def set_ingest_status(db: AsyncSession, doc: Document, status: str) -> Document:
+    doc.ingest_status = status
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
 async def update_document(
     db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID, payload: DocumentUpdate
 ) -> Document:

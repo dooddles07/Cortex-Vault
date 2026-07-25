@@ -23,9 +23,10 @@ These are specified as P0 in [FEATURES.md](FEATURES.md) but not built.
 
 | Gap | Why it matters | Notes |
 |---|---|---|
-| **PDF text extraction** | `POST /uploads` accepts only text MIME types. PDFs store with null content and are never searchable — the headline use case is broken | Needs `pypdf`/`pdfplumber` in the ingest task |
-| **OCR** | Scanned PDFs and images yield nothing | Tesseract or a cloud OCR call; slow, belongs in the worker |
-| **Object storage** | `documents.file_path` exists but nothing writes files anywhere | Originals are currently discarded after text extraction |
+| ~~PDF text extraction~~ | **Done.** `pypdf` extraction at upload; PDFs with a text layer are chunked and searchable | Scans park at `needs_ocr` |
+| **OCR** | Scanned PDFs and images yield nothing; detected and flagged, but never indexed | Tesseract or a cloud OCR call; slow, belongs in the worker |
+| **Office formats** | `.docx`, `.pptx`, `.xlsx` store as `unsupported` | `python-docx` / `python-pptx` extractors |
+| **Object storage** | `documents.file_path` exists but nothing writes files anywhere | Originals are discarded after text extraction |
 | **Rate limiting** | Sign-in is brute-forceable; `/chat` is an unbounded cost amplifier | See [SECURITY.md](SECURITY.md) |
 | **Upload size limit** | `file.read()` loads the whole body into memory | Trivial DoS |
 | **Email verification & password reset** | `email_verified` exists; nothing sets it. Lockout is permanent | Needs an email provider |

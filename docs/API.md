@@ -71,12 +71,22 @@ List responses are `{items, total, limit, offset}`.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` |
+| `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` (null when nothing is indexable) |
 | `GET` | `/uploads/{document_id}/status` | `ingest_status`, `job_status`, `error` |
 
-**Limitation:** only `text/plain`, `text/markdown`, and `text/csv` are decoded. Other types are stored with null content and are never chunked or searchable by content.
+Text is extracted at upload time. Supported: **PDF** (via `pypdf`), plain text, Markdown, CSV, JSON, XML, HTML. Detection uses the MIME type, falling back to the file extension.
 
-`ingest_status` values: `pending` → `processing` → `indexed`, or `skipped_empty` / `failed`.
+Anything else is stored but never indexed. Uploads over `MAX_UPLOAD_BYTES` (25MB default) return `413`, rejected mid-read rather than after buffering.
+
+`ingest_status` values:
+
+| Status | Meaning |
+|---|---|
+| `pending` → `processing` → `indexed` | Normal path |
+| `needs_ocr` | PDF parsed but its text layer is under 32 characters — almost certainly a scan. OCR is not implemented, so it will never be searchable |
+| `unsupported` | File type has no text extractor (images, archives, office formats) |
+| `skipped_empty` | Decoded to nothing |
+| `failed` | Extraction or embedding raised; see `error` |
 
 ## Folders
 

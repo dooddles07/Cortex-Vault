@@ -173,8 +173,9 @@ docs/                       this documentation
 
 These are real limitations of the current build, not future ideas:
 
-- **No PDF or OCR extraction.** `POST /uploads` decodes text MIME types only; binaries are stored with null content and never chunked.
-- **No object storage.** `documents.file_path` exists but nothing writes to it.
+- **No OCR.** PDFs with a text layer are extracted and indexed, but scans are detected and parked at `needs_ocr` — they never become searchable.
+- **No object storage.** `documents.file_path` exists but nothing writes to it, so the original upload is discarded once text is extracted.
+- **Extraction is synchronous.** Parsing happens in the upload request (offloaded to a thread), not the worker, so a very large PDF slows that one request.
 - **No rate limiting.** No token bucket at the API layer.
 - **No refresh tokens.** Access tokens last 7 days with no revocation path.
 - **No email verification or password reset**, despite `email_verified` existing on the model.

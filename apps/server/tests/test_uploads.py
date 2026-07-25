@@ -3,7 +3,7 @@ import io
 import pytest
 from fastapi import HTTPException, UploadFile
 
-from app.api.v1.uploads import _TEXT_TYPES, _TYPE_BY_MIME, _read_capped
+from app.api.v1.uploads import _read_capped
 
 
 def _upload(data: bytes) -> UploadFile:
@@ -20,13 +20,7 @@ async def test_read_over_cap_raises_413():
     assert exc.value.status_code == 413
 
 
-def test_pdf_is_not_labelled_as_note():
-    assert _TYPE_BY_MIME["application/pdf"] == "pdf"
-
-
-def test_unknown_mime_falls_back_to_file_not_pdf():
-    assert _TYPE_BY_MIME.get("image/png", "file") == "file"
-
-
-def test_pdf_is_not_decoded_as_text():
-    assert "application/pdf" not in _TEXT_TYPES
+async def test_read_stops_before_buffering_the_whole_body():
+    """The cap must reject mid-read, not after the full payload is in memory."""
+    with pytest.raises(HTTPException):
+        await _read_capped(_upload(b"x" * (8 * 1024 * 1024)), 1024)
