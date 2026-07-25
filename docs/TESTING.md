@@ -30,10 +30,13 @@ pnpm install && pnpm dev
 ## Running tests
 
 ```bash
-pytest                      # all
-pytest tests/test_rag.py    # one file
-pytest -k chunk             # by name
+pytest                          # all; integration auto-skips without Postgres
+pytest -m "not slow"            # unit + smoke only
+pytest tests/test_security.py   # one file
+pytest -k chunk                 # by name
 ```
+
+Integration tests **skip automatically** when Postgres is unreachable, so `pytest` is safe without Docker running — check the skip count to know whether they actually ran.
 
 `tests/conftest.py` sets required environment defaults **before** importing app modules, because `Settings` is instantiated at import time and raises on missing fields.
 
@@ -41,12 +44,30 @@ pytest -k chunk             # by name
 
 | Layer | Location | Needs services | Purpose |
 |---|---|---|---|
-| Unit | `test_chunking.py`, `test_security.py` | No | Pure logic — chunking, hashing, tokens |
+| Unit | `test_chunking.py`, `test_security.py`, `test_uploads.py`, `test_chat_stream.py` | No | Pure logic — chunking, hashing, tokens, SSE framing, upload caps |
 | Smoke | `test_smoke.py` | No | App imports, `/health`, auth rejection, OpenAPI builds |
-| Integration | *(not written)* | Postgres + Redis | Ingestion, retrieval, full request paths |
+| Integration | `test_integration_*.py` | Postgres | Ingestion, retrieval, chat streaming, ownership isolation |
 | E2E | `tests/` at repo root (Playwright) | Full stack | Browser flows |
 
-The smoke layer is deliberately the highest-value-per-line: `test_app_imports_without_optional_provider_keys` would have caught both production incidents above.
+The smoke layer is the highest value per line: `test_app_imports_without_optional_provider_keys` would have caught both production incidents above.
+
+## Integration test design
+
+- **A separate database.** Everything runs against `cortexvault_test` (override with `TEST_DB_NAME`), created automatically on first run. Your dev vault is never truncated.
+- **Real migrations.** The suite runs `alembic upgrade head`, so the schema under test is the one that ships — including `CREATE EXTENSION vector` and the HNSW index.
+- **No AI calls.** `fake_providers` is autouse and patches both factories. Embeddings are derived deterministically from a SHA-256 of the text, so identical input always retrieves identically, offline and free. A test that hits Gemini is a bug.
+- **No worker required.** The `inline_worker` fixture patches `enqueue_ingest` to run the arq task synchronously, so the full ingest path is exercised without Redis or a running worker.
+- **Clean slate per test.** All tables are truncated between tests.
+
+Each integration module is anchored to a regression that reached production — the docstrings name which one.
+
+## Gaps
+
+- **The integration suite has not yet been run against a live database.** It was written after the fixes it covers were verified by hand against production; expect to iterate on the first `docker compose up` run.
+- **No CI.** Tests are not run automatically; `main` deploys without gating.
+- **Redis itself is never exercised** — `inline_worker` bypasses the queue, so enqueue/consume behavior is untested.
+- **No coverage measurement.**
+- **Playwright suite targets the web app only** and does not cover the API.
 
 ## Manual verification of a deployment
 
@@ -75,12 +96,4 @@ An `indexed` / `completed` status is the single most informative check — it pr
 
 Use a plainly fake domain for test accounts, and note that `email-validator` rejects reserved TLDs such as `.invalid` and `.test`.
 
-## Gaps
-
-- **No integration tests.** Nothing exercises ingestion, retrieval, or the SSE contract against a real database.
-- **No CI.** Tests are not run automatically; `main` deploys without gating.
-- **No fixtures or factories** for seeding users and documents.
-- **No coverage measurement.**
-- **Playwright suite targets the web app only** and does not cover the API.
-
-Highest-value next step is an integration test that ingests a document against the compose stack and asserts a search hit — it covers the most surface per line and would catch schema, embedding, and index regressions together.
+Highest-value next step is wiring the suite into CI so `main` cannot deploy on a red build.

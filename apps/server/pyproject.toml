@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "cortexvault-server"
 version = "0.1.0"
@@ -30,8 +34,14 @@ dev = [
     "ruff>=0.8",
 ]
 
+# Without this, flat-layout discovery sees app/, tests/, and alembic/ and refuses.
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [tool.ruff]
 line-length = 100
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
