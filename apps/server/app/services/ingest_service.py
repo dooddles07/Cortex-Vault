@@ -14,9 +14,6 @@ from app.schemas.upload import IngestStatus
 async def queue_ingest(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID) -> Job:
     job = Job(user_id=user_id, document_id=document_id, type="ingest", status="queued")
     db.add(job)
-    await db.execute(
-        select(Document).where(Document.id == document_id).execution_options(populate_existing=True)
-    )
     await db.commit()
     await db.refresh(job)
     return job

@@ -40,5 +40,7 @@ class Settings(BaseSettings):
     RETRIEVAL_TOP_K: int = 20
     RERANK_TOP_N: int = 6
 
+    MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
+
 
 settings = Settings()  # type: ignore[call-arg]

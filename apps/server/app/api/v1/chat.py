@@ -11,8 +11,9 @@ router = APIRouter(tags=["chat"])
 
 
 @router.post("/chat")
-async def chat(payload: ChatRequest, user: CurrentUser, db: DbSession) -> StreamingResponse:
-    stream = chat_service.stream_answer(db, user.id, payload.message, payload.conversation_id)
+async def chat(payload: ChatRequest, user: CurrentUser) -> StreamingResponse:
+    # No DbSession here: the generator outlives this handler and opens its own.
+    stream = chat_service.stream_answer(user.id, payload.message, payload.conversation_id)
     return StreamingResponse(
         stream,
         media_type="text/event-stream",

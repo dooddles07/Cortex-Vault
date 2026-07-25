@@ -19,10 +19,19 @@ class RetrievedChunk:
 
 
 async def hybrid_search(
-    db: AsyncSession, user_id: uuid.UUID, query: str, limit: int | None = None
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    query: str,
+    limit: int | None = None,
+    mode: str = "hybrid",
 ) -> list[RetrievedChunk]:
-    """Vector similarity + Postgres full-text, fused by reciprocal rank."""
+    """Vector similarity, Postgres full-text, or both fused by reciprocal rank."""
     top_k = limit or settings.RETRIEVAL_TOP_K
+    if mode == "semantic":
+        return await _vector_search(db, user_id, query, top_k)
+    if mode == "keyword":
+        return await _keyword_search(db, user_id, query, top_k)
+
     vector_hits = await _vector_search(db, user_id, query, top_k)
     keyword_hits = await _keyword_search(db, user_id, query, top_k)
     return _reciprocal_rank_fusion(vector_hits, keyword_hits)[:top_k]

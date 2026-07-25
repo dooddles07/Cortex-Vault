@@ -24,7 +24,12 @@ async def get_current_user(
     subject = decode_access_token(credentials.credentials)
     if not subject:
         raise UnauthorizedError("Invalid or expired token")
-    user = await db.get(User, uuid.UUID(subject))
+    try:
+        user_id = uuid.UUID(subject)
+    except ValueError:
+        # A validly signed token with a non-UUID subject is still not usable.
+        raise UnauthorizedError("Invalid token subject") from None
+    user = await db.get(User, user_id)
     if not user:
         raise UnauthorizedError()
     return user

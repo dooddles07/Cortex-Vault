@@ -1,16 +1,21 @@
 import json
+import logging
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import NotFoundError
+from app.db.session import SessionLocal
 from app.models import Conversation, Message, MessageCitation
 from app.rag.prompts import build_messages
 from app.rag.providers import get_chat_provider
 from app.rag.retrieval import hybrid_search
+
+logger = logging.getLogger(__name__)
 
 _HISTORY_TURNS = 6
 
@@ -55,48 +60,66 @@ async def delete_conversation(
 
 
 async def stream_answer(
-    db: AsyncSession, user_id: uuid.UUID, question: str, conversation_id: uuid.UUID | None
+    user_id: uuid.UUID, question: str, conversation_id: uuid.UUID | None
 ) -> AsyncIterator[str]:
-    """Yields SSE-formatted events: citations first, then token deltas, then done."""
-    convo = (
-        await get_conversation(db, user_id, conversation_id)
-        if conversation_id
-        else await _create_conversation(db, user_id, question)
-    )
+    """Yields SSE events: citations, then token deltas, then done (or error).
 
-    db.add(Message(conversation_id=convo.id, role="user", content=question))
-    await db.commit()
+    Owns its own session: the request-scoped dependency is torn down when the
+    handler returns, which is before this generator finishes producing the body.
+    """
+    async with SessionLocal() as db:
+        try:
+            convo = (
+                await get_conversation(db, user_id, conversation_id)
+                if conversation_id
+                else await _create_conversation(db, user_id, question)
+            )
 
-    hits = (await hybrid_search(db, user_id, question))[: settings.RERANK_TOP_N]
-    citations = [
-        {
-            "index": i + 1,
-            "chunk_id": str(h.chunk_id),
-            "document_id": str(h.document_id),
-            "document_title": h.document_title,
-        }
-        for i, h in enumerate(hits)
-    ]
-    yield _sse("citations", citations)
+            user_message = Message(conversation_id=convo.id, role="user", content=question)
+            db.add(user_message)
+            await db.commit()
 
-    history = await _recent_history(db, convo.id)
-    messages = build_messages(question, [h.content for h in hits], history)
+            hits = (await hybrid_search(db, user_id, question))[: settings.RERANK_TOP_N]
+            yield _sse(
+                "citations",
+                [
+                    {
+                        "index": i + 1,
+                        "chunk_id": str(h.chunk_id),
+                        "document_id": str(h.document_id),
+                        "document_title": h.document_title,
+                    }
+                    for i, h in enumerate(hits)
+                ],
+            )
 
-    answer = ""
-    async for token in get_chat_provider().stream(messages):
-        answer += token
-        yield _sse("token", {"delta": token})
+            history = await _recent_history(db, convo.id, exclude_id=user_message.id)
+            messages = build_messages(question, [h.content for h in hits], history)
 
-    assistant = Message(conversation_id=convo.id, role="assistant", content=answer)
-    db.add(assistant)
-    await db.flush()
-    db.add_all(
-        MessageCitation(message_id=assistant.id, chunk_id=h.chunk_id, rank=i)
-        for i, h in enumerate(hits)
-    )
-    await db.commit()
+            answer = ""
+            async for token in get_chat_provider().stream(messages):
+                answer += token
+                yield _sse("token", {"delta": token})
 
-    yield _sse("done", {"conversation_id": str(convo.id), "message_id": str(assistant.id)})
+            assistant = Message(conversation_id=convo.id, role="assistant", content=answer)
+            db.add(assistant)
+            await db.flush()
+            db.add_all(
+                MessageCitation(message_id=assistant.id, chunk_id=h.chunk_id, rank=i)
+                for i, h in enumerate(hits)
+            )
+            _touch(convo)
+            await db.commit()
+
+            yield _sse(
+                "done", {"conversation_id": str(convo.id), "message_id": str(assistant.id)}
+            )
+        except Exception as exc:
+            # The stream already returned 200, so failures can only be reported in-band.
+            logger.exception("chat stream failed for user %s", user_id)
+            await db.rollback()
+            yield _sse("error", {"message": "The assistant failed to complete this answer."})
+            raise RuntimeError("chat stream failed") from exc
 
 
 async def _create_conversation(
@@ -109,15 +132,23 @@ async def _create_conversation(
     return convo
 
 
-async def _recent_history(db: AsyncSession, conversation_id: uuid.UUID) -> list[dict[str, str]]:
+def _touch(convo: Conversation) -> None:
+    """Adding a message does not dirty the conversation row, so onupdate never
+    fires and list ordering would fall back to creation time."""
+    convo.updated_at = datetime.now(UTC)
+
+
+async def _recent_history(
+    db: AsyncSession, conversation_id: uuid.UUID, exclude_id: uuid.UUID
+) -> list[dict[str, str]]:
     stmt = (
         select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at.desc())
+        .where(Message.conversation_id == conversation_id, Message.id != exclude_id)
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(_HISTORY_TURNS)
     )
     messages = list((await db.scalars(stmt)).all())[::-1]
-    return [{"role": m.role, "content": m.content} for m in messages[:-1]]
+    return [{"role": m.role, "content": m.content} for m in messages]
 
 
 def _sse(event: str, data: object) -> str:
