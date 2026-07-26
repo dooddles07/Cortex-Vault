@@ -1,5 +1,7 @@
 #!/bin/sh
-# Single image, two roles: SERVICE_ROLE=worker runs the queue, anything else serves the API.
+# One image, two roles. SERVICE_ROLE=worker runs the arq queue consumer, which
+# is only needed when INGEST_MODE=queue. The default single-service deployment
+# runs ingestion in-process and needs this container only in the api role.
 set -e
 
 if [ "$SERVICE_ROLE" = "worker" ]; then

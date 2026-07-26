@@ -1,3 +1,5 @@
+"""arq queue access. Only used when INGEST_MODE=queue."""
+
 import uuid
 
 from arq import create_pool
@@ -5,9 +7,13 @@ from arq.connections import ArqRedis, RedisSettings
 
 from app.core.config import settings
 
-redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
-
 _pool: ArqRedis | None = None
+
+
+def redis_settings() -> RedisSettings:
+    if not settings.REDIS_URL:
+        raise RuntimeError("INGEST_MODE=queue requires REDIS_URL to be set")
+    return RedisSettings.from_dsn(settings.REDIS_URL)
 
 
 async def get_pool() -> ArqRedis:
@@ -15,7 +21,7 @@ async def get_pool() -> ArqRedis:
     round trip to every write that triggers ingestion."""
     global _pool
     if _pool is None:
-        _pool = await create_pool(redis_settings)
+        _pool = await create_pool(redis_settings())
     return _pool
 
 

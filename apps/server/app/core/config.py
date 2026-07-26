@@ -9,7 +9,14 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
     DATABASE_URL_SYNC: str
-    REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Optional. Without it, ingestion runs in-process and rate limiting falls
+    # back to per-instance counters — the free single-instance deployment.
+    REDIS_URL: str | None = None
+
+    # "inline" runs ingestion in a FastAPI background task; "queue" hands it to
+    # an arq worker. Queue mode needs REDIS_URL and a separate worker process.
+    INGEST_MODE: str = "inline"
 
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"

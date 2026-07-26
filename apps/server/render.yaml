@@ -1,0 +1,41 @@
+# Render blueprint for the free single-service deployment.
+# Ingestion runs in-process (INGEST_MODE=inline), so there is no worker and no
+# Redis — no free host offers an always-on background worker.
+services:
+  - type: web
+    name: cortexvault-api
+    runtime: docker
+    plan: free
+    rootDir: apps/server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ENV
+        value: production
+      - key: INGEST_MODE
+        value: inline
+      - key: SERVICE_ROLE
+        value: api
+      - key: EMBEDDING_PROVIDER
+        value: gemini
+      - key: EMBEDDING_DIM
+        value: "768"
+      - key: CHAT_PROVIDER
+        value: groq
+      - key: GROQ_CHAT_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      # Set these in the Render dashboard, not here.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_SYNC
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

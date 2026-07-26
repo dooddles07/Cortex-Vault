@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.limits import UploadLimit
@@ -9,7 +9,7 @@ from app.rag.extraction import extract_text
 from app.schemas.document import DocumentCreate
 from app.schemas.upload import IngestStatus, UploadAccepted
 from app.services import document_service, ingest_service
-from app.workers.queue import enqueue_ingest
+from app.services.dispatch import dispatch_ingest
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -33,7 +33,12 @@ async def _read_capped(file: UploadFile, max_bytes: int) -> bytes:
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[UploadLimit],
 )
-async def upload(user: CurrentUser, db: DbSession, file: UploadFile = File(...)) -> UploadAccepted:
+async def upload(
+    user: CurrentUser,
+    db: DbSession,
+    background: BackgroundTasks,
+    file: UploadFile = File(...),
+) -> UploadAccepted:
     raw = await _read_capped(file, settings.MAX_UPLOAD_BYTES)
     filename = file.filename or "Untitled"
     parsed = await extract_text(raw, file.content_type or "", filename)
@@ -48,7 +53,7 @@ async def upload(user: CurrentUser, db: DbSession, file: UploadFile = File(...))
     # status explaining why they will never be searchable.
     if parsed.content:
         job = await ingest_service.queue_ingest(db, user.id, doc.id)
-        await enqueue_ingest(doc.id, job.id)
+        await dispatch_ingest(background, doc.id, job.id)
         job_id = job.id
     else:
         await document_service.set_ingest_status(db, doc, parsed.status)

@@ -16,7 +16,8 @@ configure_logging()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
-    await close_pool()
+    if settings.INGEST_MODE == "queue":
+        await close_pool()
     await close_redis()
 
 

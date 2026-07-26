@@ -1,13 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, BackgroundTasks, Query, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.models import Document
 from app.schemas.common import Page
 from app.schemas.document import DocumentCreate, DocumentRead, DocumentUpdate
 from app.services import document_service, ingest_service
-from app.workers.queue import enqueue_ingest
+from app.services.dispatch import dispatch_ingest
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -34,11 +34,13 @@ async def list_documents(
 
 
 @router.post("", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
-async def create_document(payload: DocumentCreate, user: CurrentUser, db: DbSession) -> Document:
+async def create_document(
+    payload: DocumentCreate, user: CurrentUser, db: DbSession, background: BackgroundTasks
+) -> Document:
     doc = await document_service.create_document(db, user.id, payload)
     if doc.content:
         job = await ingest_service.queue_ingest(db, user.id, doc.id)
-        await enqueue_ingest(doc.id, job.id)
+        await dispatch_ingest(background, doc.id, job.id)
     return doc
 
 
@@ -49,12 +51,16 @@ async def get_document(document_id: uuid.UUID, user: CurrentUser, db: DbSession)
 
 @router.patch("/{document_id}", response_model=DocumentRead)
 async def update_document(
-    document_id: uuid.UUID, payload: DocumentUpdate, user: CurrentUser, db: DbSession
+    document_id: uuid.UUID,
+    payload: DocumentUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    background: BackgroundTasks,
 ) -> Document:
     doc = await document_service.update_document(db, user.id, document_id, payload)
     if payload.content is not None:
         job = await ingest_service.queue_ingest(db, user.id, doc.id)
-        await enqueue_ingest(doc.id, job.id)
+        await dispatch_ingest(background, doc.id, job.id)
     return doc
 
 

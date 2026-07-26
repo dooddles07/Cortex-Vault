@@ -111,6 +111,23 @@ flowchart LR
 
 Re-ingesting a document deletes its chunks first, so the task is safe to retry. arq retries up to 3 times; a terminal failure writes the error onto the `jobs` row and sets `ingest_status=failed`.
 
+## Ingestion modes
+
+`INGEST_MODE` selects how ingestion runs. Both paths are real and tested.
+
+| Mode | How it runs | Needs | Use when |
+|---|---|---|---|
+| `inline` (default) | FastAPI `BackgroundTasks`, in the API process | Postgres only | Free single-service hosting |
+| `queue` | arq worker over Redis | Redis + a worker process | Ingestion must scale independently of the API |
+
+Inline is the default because **no free host offers an always-on background worker**. Costs of inline:
+
+- A large document competes with request handling in the same process.
+- An API restart mid-ingest loses that job — the document stays at `processing` until re-ingested.
+- No automatic retries; queue mode gets 3 from arq.
+
+Rate limiting follows the same optionality: with `REDIS_URL` set it uses Redis, otherwise per-instance in-memory counters. That is correct on one instance and wrong on several — each would enforce its own budget, multiplying the effective limit by the instance count.
+
 ## The Single-Image, Two-Role Pattern
 
 `api` and `worker` are the same Docker image. `entrypoint.sh` branches on `SERVICE_ROLE`:

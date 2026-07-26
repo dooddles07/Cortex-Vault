@@ -1,6 +1,7 @@
 import pytest
 from fastapi import HTTPException, Request
 
+import app.core.rate_limit as rl
 from app.core.rate_limit import Limit, client_ip, enforce
 
 
@@ -27,6 +28,23 @@ class BrokenRedis:
         raise ConnectionError("redis is down")
 
 
+@pytest.fixture
+def redis(monkeypatch) -> FakeRedis:
+    """Route the limiter through a fake Redis."""
+    fake = FakeRedis()
+    monkeypatch.setattr(rl.settings, "REDIS_URL", "redis://fake")
+    monkeypatch.setattr(rl, "_get_redis", lambda: fake)
+    return fake
+
+
+@pytest.fixture
+def in_memory(monkeypatch):
+    """Route the limiter through the process-local counters."""
+    monkeypatch.setattr(rl.settings, "REDIS_URL", None)
+    monkeypatch.setattr(rl, "_local", {})
+    monkeypatch.setattr(rl, "_local_window", None)
+
+
 def _request(headers: dict[str, str] | None = None, host: str = "10.0.0.1") -> Request:
     scope = {
         "type": "http",
@@ -36,20 +54,16 @@ def _request(headers: dict[str, str] | None = None, host: str = "10.0.0.1") -> R
     return Request(scope)
 
 
-async def test_requests_under_the_limit_pass(monkeypatch):
-    redis = FakeRedis()
-    monkeypatch.setattr("app.core.rate_limit.get_redis", lambda: redis)
-    limit = Limit(3, 60, "test")
+# --- Redis-backed path -----------------------------------------------------
 
+
+async def test_requests_under_the_limit_pass(redis):
     for _ in range(3):
-        await enforce("bucket", "user-1", limit)
+        await enforce("bucket", "user-1", Limit(3, 60, "test"))
 
 
-async def test_exceeding_the_limit_raises_429(monkeypatch):
-    redis = FakeRedis()
-    monkeypatch.setattr("app.core.rate_limit.get_redis", lambda: redis)
+async def test_exceeding_the_limit_raises_429(redis):
     limit = Limit(2, 60, "test")
-
     await enforce("bucket", "user-1", limit)
     await enforce("bucket", "user-1", limit)
 
@@ -60,30 +74,21 @@ async def test_exceeding_the_limit_raises_429(monkeypatch):
     assert "Retry-After" in (exc.value.headers or {})
 
 
-async def test_identities_have_separate_budgets(monkeypatch):
-    redis = FakeRedis()
-    monkeypatch.setattr("app.core.rate_limit.get_redis", lambda: redis)
+async def test_identities_have_separate_budgets(redis):
     limit = Limit(1, 60, "test")
-
     await enforce("bucket", "user-1", limit)
     # A second user must not be blocked by the first user's usage.
     await enforce("bucket", "user-2", limit)
 
 
-async def test_buckets_are_independent(monkeypatch):
-    redis = FakeRedis()
-    monkeypatch.setattr("app.core.rate_limit.get_redis", lambda: redis)
+async def test_buckets_are_independent(redis):
     limit = Limit(1, 60, "test")
-
     await enforce("chat", "user-1", limit)
     await enforce("search", "user-1", limit)
 
 
-async def test_expiry_is_set_once_per_window(monkeypatch):
-    redis = FakeRedis()
-    monkeypatch.setattr("app.core.rate_limit.get_redis", lambda: redis)
+async def test_expiry_is_set_once_per_window(redis):
     limit = Limit(5, 60, "test")
-
     await enforce("bucket", "user-1", limit)
     await enforce("bucket", "user-1", limit)
 
@@ -94,10 +99,44 @@ async def test_expiry_is_set_once_per_window(monkeypatch):
 
 async def test_limiter_fails_open_when_redis_is_down(monkeypatch):
     """Documented tradeoff: an outage removes protection rather than the API."""
-    monkeypatch.setattr("app.core.rate_limit.get_redis", lambda: BrokenRedis())
+    monkeypatch.setattr(rl.settings, "REDIS_URL", "redis://fake")
+    monkeypatch.setattr(rl, "_get_redis", lambda: BrokenRedis())
 
     await enforce("bucket", "user-1", Limit(1, 60, "test"))
     await enforce("bucket", "user-1", Limit(1, 60, "test"))
+
+
+# --- In-memory path (no Redis configured) ----------------------------------
+
+
+async def test_in_memory_limiter_enforces_without_redis(in_memory):
+    limit = Limit(2, 60, "test")
+    await enforce("bucket", "user-1", limit)
+    await enforce("bucket", "user-1", limit)
+
+    with pytest.raises(HTTPException) as exc:
+        await enforce("bucket", "user-1", limit)
+    assert exc.value.status_code == 429
+
+
+async def test_in_memory_identities_are_separate(in_memory):
+    limit = Limit(1, 60, "test")
+    await enforce("bucket", "user-1", limit)
+    await enforce("bucket", "user-2", limit)
+
+
+async def test_in_memory_state_resets_on_a_new_window(in_memory, monkeypatch):
+    """Counters must not grow without bound across windows."""
+    limit = Limit(1, 60, "test")
+    monkeypatch.setattr(rl.time, "time", lambda: 0)
+    await enforce("bucket", "user-1", limit)
+
+    monkeypatch.setattr(rl.time, "time", lambda: 600)
+    await enforce("bucket", "user-1", limit)
+    assert len(rl._local) == 1
+
+
+# --- Client IP -------------------------------------------------------------
 
 
 def test_client_ip_prefers_forwarded_header():
