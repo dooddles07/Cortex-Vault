@@ -33,6 +33,7 @@ Think Notion + Obsidian + NotebookLM + Perplexity, with your data staying yours.
 | [TESTING](docs/TESTING.md) | Local setup, test layers, deployment verification |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | Vercel + Render + Neon setup, cold starts, failure modes |
 | [DESIGN](docs/DESIGN.md) · [UI-UX](docs/UI-UX.md) | Design tokens, component system, screens |
+| [CHANGELOG](docs/CHANGELOG.md) | What shipped, by day |
 
 ## Stack
 
