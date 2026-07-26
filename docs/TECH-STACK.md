@@ -17,7 +17,9 @@ Every choice below is in the deployed build. Rationale is recorded so future cha
 | Auth | bcrypt + python-jose | Direct bcrypt; HS256 JWTs |
 | HTTP client | httpx | Async, already required by FastAPI's test client |
 | AI | Google Gemini | Only provider with a genuinely free tier for both chat and embeddings |
-| Deploy | Railway | Single platform for web, API, worker, Postgres, and Redis |
+| Frontend host | Vercel | Free, Next.js native, no cold start |
+| Backend host | Render | Free Docker web service; sleeps when idle |
+| Database host | Neon | Free Postgres with pgvector, scales to zero |
 
 ## Why Python instead of the original TypeScript plan
 

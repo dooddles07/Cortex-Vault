@@ -1,6 +1,8 @@
 # API Reference
 
-Base URL: `https://api-production-84b56.up.railway.app`
+Base URL: `https://cortexvault-api.onrender.com`
+
+> Hosted on Render's free tier, which sleeps after 15 minutes of inactivity. The first request after a gap can take ~50 seconds — set generous client timeouts.
 All routes are prefixed `/api/v1` except `/health` and `/docs`.
 
 Interactive schema: `/docs` (Swagger UI) · machine-readable: `/openapi.json`

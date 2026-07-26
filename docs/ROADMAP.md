@@ -15,7 +15,7 @@ Backend deployed and verified end-to-end in production.
 | Search | Hybrid vector + full-text with reciprocal rank fusion |
 | Chat | SSE streaming, citations event before tokens, persisted citations |
 | Dashboard | Counts + recent documents |
-| Infra | 5 Railway services, migrations on boot, private-network DB access |
+| Infra | Vercel + Render + Neon, all free tiers; migrations on boot; inline ingestion (no Redis, no worker) |
 
 ## P0 — remaining MVP gaps
 
@@ -49,8 +49,9 @@ Voice notes with transcription · email ingestion · SSO/SAML · MFA · knowledg
 
 Ordered by risk, not effort.
 
-1. **CI runs but does not gate deploys.** GitHub Actions runs lint, the full test suite against a real pgvector Postgres, and the web build — but Railway deploys on push regardless of the result. Enable "Wait for CI" on each service to close the gap. See [TESTING.md](TESTING.md).
-2. **No error tracking.** Failures are only visible in ephemeral Railway logs.
+1. **CI is written but has never run**, and does not gate deploys. The workflow runs lint, the full suite against a real pgvector Postgres, and the web build — but the account's GitHub Actions budget is $0 with stop-usage enabled, so no job starts. Render and Vercel deploy on push regardless. See [TESTING.md](TESTING.md).
+2. **No error tracking.** Failures are only visible in Render's log stream.
+3. **Cold starts.** Render free sleeps after 15 minutes; the next request takes ~50s. The only real fix is a paid instance.
 3. **No staging environment.**
 4. **Token revocation.** Stateless JWTs valid 7 days; rotating `JWT_SECRET` is the only global sign-out.
 5. **Embedding dimension is load-bearing.** 768 is forced by pgvector's 2000-dim HNSW cap. Changing provider means a migration, index rebuild, and full re-embed — see [RAG.md](RAG.md).

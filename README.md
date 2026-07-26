@@ -31,14 +31,21 @@ Think Notion + Obsidian + NotebookLM + Perplexity, with your data staying yours.
 | [AI](docs/AI.md) | Provider adapters, model availability, cost and privacy |
 | [SECURITY](docs/SECURITY.md) | What is enforced, and the pre-production gap list |
 | [TESTING](docs/TESTING.md) | Local setup, test layers, deployment verification |
-| [DEPLOYMENT](docs/DEPLOYMENT.md) | Railway topology, config as code, failure modes |
+| [DEPLOYMENT](docs/DEPLOYMENT.md) | Vercel + Render + Neon setup, cold starts, failure modes |
 | [DESIGN](docs/DESIGN.md) · [UI-UX](docs/UI-UX.md) | Design tokens, component system, screens |
 
 ## Stack
 
-Next.js 15 + TypeScript + Tailwind 4 · FastAPI (Python 3.12) · Postgres 17 + pgvector · SQLAlchemy 2 + Alembic · Redis + arq · Google Gemini (OpenAI and Ollama adapters included) · Railway
+Next.js 15 + TypeScript + Tailwind 4 · FastAPI (Python 3.12) · Postgres + pgvector · SQLAlchemy 2 + Alembic · Groq (chat) + Gemini (embeddings), with OpenAI and Ollama adapters · Vercel + Render + Neon
 
 Full rationale — including why the backend is Python rather than the originally planned TypeScript — in [TECH-STACK.md](docs/TECH-STACK.md).
+
+## Live
+
+- App — [cortex-vault-web.vercel.app](https://cortex-vault-web.vercel.app)
+- API — [cortexvault-api.onrender.com](https://cortexvault-api.onrender.com) · [`/docs`](https://cortexvault-api.onrender.com/docs)
+
+Runs entirely on free tiers. The API sleeps after 15 minutes idle, so the first request after a quiet period takes ~50 seconds.
 
 ## Quick start
 

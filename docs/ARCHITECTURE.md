@@ -66,7 +66,7 @@ flowchart TB
 | Database | Postgres 17 + pgvector | Relational data, embeddings, full-text search |
 | Queue | Redis + arq | Decouples upload from chunk/embed |
 | AI | Google Gemini (adapters for OpenAI, Ollama) | Chat completion and embeddings |
-| Deploy | Railway (5 services) | web, api, worker, Postgres, Redis |
+| Deploy | Vercel (web) + Render (api) + Neon (Postgres) | Three free tiers, no worker |
 
 ## Request Flow — Chat (SSE)
 
@@ -140,7 +140,7 @@ alembic upgrade head
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
 ```
 
-This exists because Railway resolves a service's config file relative to its root directory — both services read the same `apps/server/railway.json`, so they cannot declare different start commands there. Branching inside the image avoids needing a per-service dashboard override, keeping deployment reproducible from the repo.
+The current deployment runs only the `api` role — ingestion is inline, so there is no worker. The branch is retained because it is the whole mechanism for `INGEST_MODE=queue`: one image, deployed twice, differing only by an environment variable. Restoring the queue means adding a second service with `SERVICE_ROLE=worker`, not rebuilding anything.
 
 Migrations run only on the API role, so concurrent workers never race on `alembic upgrade`.
 

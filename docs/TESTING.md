@@ -81,7 +81,7 @@ Ruff's rule set is pinned explicitly in `pyproject.toml` (`E`, `F`, `I`, `B`, `S
 - **Redis itself is never exercised** — `inline_worker` bypasses the queue, so enqueue/consume behavior is untested.
 - **No coverage measurement.**
 - **Playwright suite targets the web app only** and does not cover the API.
-- **CI does not gate deploys.** Railway deploys on push independently of the workflow result; a red build still ships. Enable "Wait for CI" in the service settings to change that.
+- **CI does not gate deploys.** Render and Vercel both deploy on push independently of the workflow result, so a red build still ships. Render: Settings → Build & Deploy → "Wait for CI Checks". Vercel: Settings → Git → "Ignored Build Step".
 
 ## Manual verification of a deployment
 

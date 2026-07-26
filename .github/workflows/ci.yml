@@ -85,5 +85,5 @@ jobs:
         # Inlined at build time, so it must be present here for the bundle to
         # be representative.
         env:
-          NEXT_PUBLIC_API_URL: https://api-production-84b56.up.railway.app
+          NEXT_PUBLIC_API_URL: https://cortexvault-api.onrender.com
         run: pnpm --filter @cortexvault/web build
