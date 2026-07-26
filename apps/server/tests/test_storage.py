@@ -35,3 +35,46 @@ async def test_store_original_swallows_upload_failures(monkeypatch):
     result = await r2.store_original("user-1", "doc-1", "a.txt", b"hello", "text/plain")
 
     assert result is None
+
+
+async def test_delete_original_is_a_noop_without_a_file_path(monkeypatch):
+    monkeypatch.setattr(settings, "R2_ACCOUNT_ID", "acct")
+    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "key")
+    monkeypatch.setattr(settings, "R2_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setattr(settings, "R2_BUCKET_NAME", "bucket")
+
+    calls = []
+    monkeypatch.setattr(r2, "_delete", lambda key: calls.append(key))
+
+    await r2.delete_original(None)
+
+    assert calls == []
+
+
+async def test_delete_original_removes_the_stored_key(monkeypatch):
+    monkeypatch.setattr(settings, "R2_ACCOUNT_ID", "acct")
+    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "key")
+    monkeypatch.setattr(settings, "R2_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setattr(settings, "R2_BUCKET_NAME", "bucket")
+
+    calls = []
+    monkeypatch.setattr(r2, "_delete", lambda key: calls.append(key))
+
+    await r2.delete_original("user-1/doc-1/a.txt")
+
+    assert calls == ["user-1/doc-1/a.txt"]
+
+
+async def test_delete_original_swallows_failures(monkeypatch):
+    """A hard delete the user asked for must succeed even if R2 is unreachable."""
+    monkeypatch.setattr(settings, "R2_ACCOUNT_ID", "acct")
+    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "key")
+    monkeypatch.setattr(settings, "R2_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setattr(settings, "R2_BUCKET_NAME", "bucket")
+
+    def _boom(key):
+        raise RuntimeError("simulated R2 outage")
+
+    monkeypatch.setattr(r2, "_delete", _boom)
+
+    await r2.delete_original("user-1/doc-1/a.txt")  # must not raise

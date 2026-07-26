@@ -99,6 +99,10 @@ async def restore_document(
 
 
 async def delete_document(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID) -> None:
+    from app.storage.r2 import delete_original
+
     doc = await get_document(db, user_id, document_id)
+    file_path = doc.file_path
     await db.delete(doc)
     await db.commit()
+    await delete_original(file_path)

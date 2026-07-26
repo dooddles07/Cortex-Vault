@@ -63,3 +63,19 @@ async def store_original(
         logger.exception("R2 upload failed for %s", key)
         return None
     return key
+
+
+def _delete(key: str) -> None:
+    _client().delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+
+
+async def delete_original(file_path: str | None) -> None:
+    """Remove a stored original. Called on hard document delete so a deleted
+    document does not go on occupying the free storage tier forever. Never
+    raises — a storage outage must not block the delete the user asked for."""
+    if not file_path or not is_configured():
+        return
+    try:
+        await run_in_threadpool(_delete, file_path)
+    except Exception:
+        logger.exception("R2 delete failed for %s", file_path)
