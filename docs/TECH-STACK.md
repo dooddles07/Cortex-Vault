@@ -58,7 +58,7 @@ Verified against the live API rather than assumed:
 
 Google's AI Studio rate-limit console lists quota rows for the 2.5 models even though they reject new users, so it cannot be trusted as the source of truth. Check by calling the API.
 
-OpenAI and Ollama adapters exist and are wired into the registry; neither is active. `CHAT_PROVIDER` and `EMBEDDING_PROVIDER` are independent, so Gemini embeddings can pair with a paid chat provider without code changes.
+Gemini serves embeddings only in production — deployed chat is Groq (`llama-3.3-70b-versatile`, faster inference, also free). See [AI.md](AI.md) for the active split. OpenAI and Ollama adapters exist and are wired into the registry; neither is active. `CHAT_PROVIDER` and `EMBEDDING_PROVIDER` are independent, so either half can move to a paid provider without code changes.
 
 ## Versions
 

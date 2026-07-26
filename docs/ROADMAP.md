@@ -15,6 +15,7 @@ Backend deployed and verified end-to-end in production.
 | Search | Hybrid vector + full-text with reciprocal rank fusion |
 | Chat | SSE streaming, citations event before tokens, persisted citations |
 | Dashboard | Counts + recent documents |
+| Web app | Next.js wired to the API — auth, streaming chat, search, uploads, vault, dashboard, settings |
 | Infra | Vercel + Render + Neon, all free tiers; migrations on boot; inline ingestion (no Redis, no worker) |
 
 ## P0 — remaining MVP gaps
@@ -35,7 +36,6 @@ These are specified as P0 in [FEATURES.md](FEATURES.md) but not built.
 | **Favorites / pinning** | `documents.starred` column exists; no endpoint toggles it | |
 | **Trash retention** | 30-day window specified but nothing purges | Scheduled job |
 | **Search filters** | Cannot scope by type, tag, folder, or date | Retrieval currently filters only by owner |
-| **Web app wiring** | Frontend screens exist; not connected to the API | `NEXT_PUBLIC_API_URL` is set |
 
 ## P1
 

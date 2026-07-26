@@ -202,7 +202,9 @@ Code Connect requires a Dev or Full seat on an **Organization or Enterprise** pl
 | `Table Row` · `Tab` | `app/vault/page.tsx` |
 | `Citation Chip` · `Message` | `app/chat/page.tsx` |
 | `Brand / Glyph` | `components/brand/glyph.tsx` |
-| `Dialog` · `Upload Dropzone` · `Ingest Progress` · `Empty State` | not yet implemented |
+| `Empty State` | `components/ui/states.tsx` (`EmptyState`, `Spinner`, `ErrorNote`) |
+| `Upload` | `components/upload-button.tsx` — file-picker button, not a drag-drop zone |
+| `Dialog` · `Ingest Progress` | not yet implemented |
 
 Converting to real Code Connect after a plan upgrade is mechanical: the variant axes were deliberately built to mirror the code props.
 
@@ -234,6 +236,6 @@ The first one is worth noting: it was invisible in code review and invisible in 
 - **Brand asset inconsistency.** `favicon.png` and `app-icon.png` carry a visibly different, heavier brain drawing than `icon.png` / `logo-primary.png`. The design system is built from the thin gradient mark used by the primary logo. Reconciling the set is brand work, not covered here.
 - **Code Connect is blocked by plan tier** — needs a Dev/Full seat on Organization or Enterprise. Variable code syntax and component `CODE:` descriptions cover the handoff until then.
 - P1/P2 screens stay Figma-only by scope: Version history, Sharing, Workspace members, Notifications, Audit log table, Saved searches.
-- Designed but not yet coded: Dialog/Sheet, Upload Dropzone, Ingest Progress, Empty State, command palette overlay, citation source pane, and the per-screen empty/loading/error variants (the happy path ships first).
-- No backend: screens render static fixtures. Nothing in `packages/db`, `packages/ai`, `packages/auth` or `apps/workers` exists yet.
+- Designed but not yet coded: Dialog/Sheet, drag-drop Upload Dropzone (a plain upload button ships instead), Ingest Progress, command palette overlay, citation source pane, and the per-screen empty/loading/error variants beyond the ones `states.tsx` already covers.
+- Backend exists and is wired: this section originally described the design-only phase. The FastAPI service in `apps/server` now backs every P0 screen — see [ARCHITECTURE.md](ARCHITECTURE.md). The `packages/db` / `packages/ai` / `packages/auth` split never happened; that TypeScript-services plan was replaced by the standalone Python backend (see [TECH-STACK.md](TECH-STACK.md)).
 - The glyph SVG is 47 KB (~15 KB gzipped) at IoU 0.926 against the source raster. A hand-drawn vector would be smaller and cleaner; this is the best a trace of a 295px PNG can do.

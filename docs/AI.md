@@ -19,7 +19,7 @@ Both are deliberately minimal. Chat yields plain text deltas — no tool calls, 
 `registry.py` maps names to classes and resolves them independently:
 
 ```python
-CHAT_PROVIDER=gemini        # get_chat_provider()   — gemini | groq | openai | ollama
+CHAT_PROVIDER=groq          # get_chat_provider()   — gemini | groq | openai | ollama
 EMBEDDING_PROVIDER=gemini   # get_embedding_provider() — gemini | openai | ollama
 ```
 
@@ -29,10 +29,12 @@ Splitting these matters: embeddings run on every ingested document (high volume,
 
 ## Active configuration
 
-| Role | Model | Dimension |
-|---|---|---|
-| Chat | `gemini-3.5-flash` | — |
-| Embeddings | `gemini-embedding-001` | 768 (from 3072 native) |
+Per `render.yaml` (the deployed blueprint), not the code default — `CHAT_PROVIDER` defaults to `gemini` in `config.py`, but production overrides it to `groq`.
+
+| Role | Provider | Model | Dimension |
+|---|---|---|---|
+| Chat | Groq | `llama-3.3-70b-versatile` | — |
+| Embeddings | Gemini | `gemini-embedding-001` | 768 (from 3072 native) |
 
 ## Gemini model availability
 
@@ -74,7 +76,7 @@ Inactive but wired. The client is built lazily inside `_get_client()`, **not at 
 
 Groq exposes an OpenAI-compatible API, so the official OpenAI client is reused with `base_url=https://api.groq.com/openai/v1` instead of hand-rolled HTTP. The client is built lazily, same as OpenAI's.
 
-The intended pairing is Groq chat with Gemini embeddings — both free, and Groq's inference is substantially faster than Gemini Flash:
+This is the deployed pairing — Groq chat with Gemini embeddings — both free, and Groq's inference is substantially faster than Gemini Flash:
 
 ```
 CHAT_PROVIDER=groq
