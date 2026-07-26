@@ -45,6 +45,12 @@ jobs:
           cache: pip
           cache-dependency-path: apps/server/pyproject.toml
 
+      - name: Install system dependencies
+        # tesseract-ocr + poppler-utils back the OCR path (scanned PDFs and
+        # images); without them extract_text falls back to needs_ocr, which
+        # would silently hide OCR regressions from the test suite.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr poppler-utils
+
       - name: Install
         run: pip install -e ".[dev]"
 

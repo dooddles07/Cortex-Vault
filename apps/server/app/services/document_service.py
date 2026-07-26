@@ -62,6 +62,13 @@ async def set_ingest_status(db: AsyncSession, doc: Document, status: str) -> Doc
     return doc
 
 
+async def set_file_path(db: AsyncSession, doc: Document, file_path: str) -> Document:
+    doc.file_path = file_path
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
 async def update_document(
     db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID, payload: DocumentUpdate
 ) -> Document:

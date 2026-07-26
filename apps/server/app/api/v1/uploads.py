@@ -10,6 +10,7 @@ from app.schemas.document import DocumentCreate
 from app.schemas.upload import IngestStatus, UploadAccepted
 from app.services import document_service, ingest_service
 from app.services.dispatch import dispatch_ingest
+from app.storage.r2 import store_original
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -48,6 +49,12 @@ async def upload(
         user.id,
         DocumentCreate(title=filename, type=parsed.doc_type, content=parsed.content),
     )
+
+    file_path = await store_original(
+        str(user.id), str(doc.id), filename, raw, file.content_type or ""
+    )
+    if file_path:
+        doc = await document_service.set_file_path(db, doc, file_path)
 
     # Only text-bearing documents are worth queueing; the rest carry a terminal
     # status explaining why they will never be searchable.

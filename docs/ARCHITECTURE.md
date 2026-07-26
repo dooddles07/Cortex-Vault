@@ -190,10 +190,9 @@ docs/                       this documentation
 
 These are real limitations of the current build, not future ideas:
 
-- **No OCR.** PDFs with a text layer are extracted and indexed, but scans are detected and parked at `needs_ocr` — they never become searchable.
-- **No object storage.** `documents.file_path` exists but nothing writes to it, so the original upload is discarded once text is extracted.
-- **Extraction is synchronous.** Parsing happens in the upload request (offloaded to a thread), not the worker, so a very large PDF slows that one request.
-- **No rate limiting.** No token bucket at the API layer.
+- **OCR runs inline, in the request thread pool.** Tesseract self-hosted (no external API, no data leaves the server), but there is no worker to offload it to — a scanned PDF or image blocks that one upload request for the OCR pass. Falls back to `needs_ocr` if the runtime has no tesseract binary (e.g. local dev without it installed).
+- **Object storage is optional and unconfigured by default.** Cloudflare R2 support exists (`app/storage/r2.py`); without `R2_*` env vars set, originals are still discarded after text extraction.
+- **Extraction (including OCR) is synchronous.** Parsing happens in the upload request (offloaded to a thread), not the worker, so a very large PDF or a scan slows that one request.
 - **No refresh tokens.** Access tokens last 7 days with no revocation path.
 - **No email verification or password reset**, despite `email_verified` existing on the model.
 - **Single-tenant.** No workspaces, sharing, or roles.

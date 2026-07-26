@@ -38,6 +38,12 @@ SQLAlchemy parameterizes all queries — including the full-text arm, where the 
 
 CORS is an explicit allowlist from `CORS_ORIGINS`, restricted to the methods and headers the app actually uses, with `allow_credentials=True`. Do not widen it to `*`.
 
+## Bookmark saver (SSRF)
+
+`POST /bookmarks` has the server fetch a URL the user controls — a textbook SSRF surface. `app/rag/bookmarks.py` resolves the hostname and rejects any address that is not globally routable (`ipaddress.is_global`) before every request, which covers loopback, private ranges (RFC 1918), link-local, and cloud metadata endpoints (`169.254.169.254`). Redirects are followed manually, one hop at a time, so each hop is re-validated rather than trusting `httpx`'s `follow_redirects` to land somewhere already-checked. Only `http`/`https` schemes are accepted. The fetch is capped at 10MB, read in chunks, same pattern as upload size limiting.
+
+Not covered: DNS rebinding between the validation check and the actual request (the window is small but non-zero), and the check happens in a worker thread synchronously — a slow-resolving or adversarial DNS server could hold that thread, though the overall request still respects `_TIMEOUT`.
+
 ## Rate limiting
 
 Redis-backed fixed-window counters, applied per route. Auth keys on IP (there is no user yet); everything else keys on user id, so one user cannot exhaust another's budget by sharing an egress IP.
@@ -69,7 +75,6 @@ The IP is read from `X-Forwarded-For` because Render terminates TLS upstream. Th
 | **No token revocation** | A leaked token is valid for its full 7 days. No sign-out, no refresh, no session table |
 | **No email verification** | `email_verified` exists on the model but nothing sets it — anyone can register any address |
 | **No password reset** | Account lockout is permanent |
-| **No upload size limit** | `await file.read()` loads the whole body into memory — a large upload is a trivial DoS |
 | **No audit logging** | [FEATURES.md](FEATURES.md) specifies `audit_logs`; nothing writes it |
 
 **Also missing:** MFA, account lockout after failed attempts, security headers (HSTS, CSP, `X-Content-Type-Options`), request-size limits, and dependency scanning in CI.

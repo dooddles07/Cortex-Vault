@@ -39,3 +39,13 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      # Optional — object storage for original uploads. Omit all four and the
+      # app runs exactly as before (text extracted, file discarded).
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false

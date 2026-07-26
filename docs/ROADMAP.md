@@ -17,6 +17,9 @@ Backend deployed and verified end-to-end in production.
 | Dashboard | Counts + recent documents |
 | Web app | Next.js wired to the API — auth, streaming chat, search, uploads, vault, dashboard, settings |
 | Infra | Vercel + Render + Neon, all free tiers; migrations on boot; inline ingestion (no Redis, no worker) |
+| Ingestion formats | PDF (`pypdf`), `.docx`/`.pptx`/`.xlsx`, OCR for scans and images (Tesseract, self-hosted), bookmark saver (fetch + `trafilatura` readability extraction) |
+| Object storage | Cloudflare R2, optional — set `R2_*` or originals are discarded after text extraction, same as before |
+| Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
 
 ## P0 — remaining MVP gaps
 
@@ -24,14 +27,7 @@ These are specified as P0 in [FEATURES.md](FEATURES.md) but not built.
 
 | Gap | Why it matters | Notes |
 |---|---|---|
-| ~~PDF text extraction~~ | **Done.** `pypdf` extraction at upload; PDFs with a text layer are chunked and searchable | Scans park at `needs_ocr` |
-| **OCR** | Scanned PDFs and images yield nothing; detected and flagged, but never indexed | Tesseract or a cloud OCR call; slow, belongs in the worker |
-| **Office formats** | `.docx`, `.pptx`, `.xlsx` store as `unsupported` | `python-docx` / `python-pptx` extractors |
-| **Object storage** | `documents.file_path` exists but nothing writes files anywhere | Originals are discarded after text extraction |
-| ~~Rate limiting~~ | **Done.** Redis fixed-window limits on auth, chat, uploads and search | Fails open if Redis is down — see [SECURITY.md](SECURITY.md) |
-| **Upload size limit** | `file.read()` loads the whole body into memory | Trivial DoS |
 | **Email verification & password reset** | `email_verified` exists; nothing sets it. Lockout is permanent | Needs an email provider |
-| **Bookmark saver** | P0 capture path; no endpoint | Fetch + readability extraction |
 | **Collections** | P0 organization primitive; no table or endpoints | |
 | **Favorites / pinning** | `documents.starred` column exists; no endpoint toggles it | |
 | **Trash retention** | 30-day window specified but nothing purges | Scheduled job |
@@ -59,12 +55,10 @@ Ordered by risk, not effort.
 7. **No embedding cache.** `content_hash` is stored and unused.
 8. **No connection-pool tuning.** Will bite before CPU does when API replicas scale.
 9. **Free-tier AI has privacy implications.** Google may train on free-tier data — blocking for real user documents. See [AI.md](AI.md).
+10. **OCR runs inline, on Render's shared free vCPU.** No worker is deployed, so a scanned PDF's OCR pass competes with request handling in the same process and blocks that one upload request for its duration. Cloudflare R2 (object storage) and Groq (chat) are the only external services in the stack that could still function if this ran in a real worker — restoring `INGEST_MODE=queue` would move OCR off the request path.
 
 ## Suggested order
 
-1. PDF extraction + object storage — without these the product does not do what the README claims
-2. Integration test + CI — stop shipping runtime bugs
-3. Rate limiting + upload caps — cheapest real-abuse mitigations
-4. Wire the web app to the API — first end-to-end user-visible product
-5. Email verification + password reset — prerequisite for anyone but you
-6. Search filters and collections — the organization layer users will expect
+1. Email verification + password reset — prerequisite for anyone but you
+2. Search filters and collections — the organization layer users will expect
+3. CI actually gating deploys — stop shipping runtime bugs (blocked on GitHub Actions budget, see engineering debt)

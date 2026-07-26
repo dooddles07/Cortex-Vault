@@ -4,7 +4,7 @@
 
 CortexVault is an AI-powered second brain built on Retrieval-Augmented Generation (RAG). Collect documents, PDFs, notes, web pages, code, and more — then search and chat with your own knowledge using an assistant that answers only from what you've stored.
 
-> **Status:** Backend implemented and deployed; frontend wired to it (auth, chat, search, uploads, vault, dashboard). The API (auth, documents, folders, tags, ingestion, hybrid search, RAG chat) is live and verified end-to-end. OCR, object storage, and most P1 features are not built — see [ROADMAP.md](docs/ROADMAP.md) for the honest gap list.
+> **Status:** Backend implemented and deployed; frontend wired to it (auth, chat, search, uploads, vault, dashboard). The API (auth, documents, folders, tags, ingestion, hybrid search, RAG chat) is live and verified end-to-end. Ingestion handles PDF, `.docx`/`.pptx`/`.xlsx`, and OCR for scans/images; object storage is optional (Cloudflare R2). Collections, favorites, trash retention, search filters, and most P1 features are not built — see [ROADMAP.md](docs/ROADMAP.md) for the honest gap list.
 
 ## Why CortexVault
 

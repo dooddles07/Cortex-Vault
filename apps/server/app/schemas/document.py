@@ -6,7 +6,9 @@ from pydantic import Field
 from app.schemas.common import ORMModel
 
 # "file" covers uploads stored without text extraction (see uploads router).
-DOC_TYPES = "^(note|pdf|file|bookmark|clip|youtube|snippet|meeting|voice|email)$"
+DOC_TYPES = (
+    "^(note|pdf|docx|pptx|xlsx|image|file|bookmark|clip|youtube|snippet|meeting|voice|email)$"
+)
 
 
 class DocumentCreate(ORMModel):

@@ -53,6 +53,13 @@ class Settings(BaseSettings):
 
     MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
 
+    # Optional. Without all four set, original uploads are not persisted —
+    # text is extracted and the file discarded, same as today's behavior.
+    R2_ACCOUNT_ID: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_BUCKET_NAME: str | None = None
+
     # Requests per minute. Auth is per IP; the rest are per user.
     RATE_LIMIT_AUTH: int = 10
     RATE_LIMIT_CHAT: int = 20

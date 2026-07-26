@@ -27,6 +27,8 @@ pnpm install && pnpm dev
 
 **Install the dependencies locally even if you only intend to deploy.** Two production incidents in this project — an eagerly constructed OpenAI client and a `passlib`/`bcrypt` incompatibility — were plain import-time errors that any local run would have caught. Compiling is not importing; `python -m compileall` passes on both.
 
+OCR needs two system binaries the Dockerfile installs but a bare `pip install` does not: `tesseract-ocr` and `poppler-utils` (the latter backs `pdf2image`'s PDF-to-image rasterization). Without them, `extract_text` doesn't fail — it logs a warning and falls back to `needs_ocr`, so a local run without these installed will silently look like OCR isn't implemented rather than erroring.
+
 ## Running tests
 
 ```bash
@@ -79,6 +81,8 @@ Ruff's rule set is pinned explicitly in `pyproject.toml` (`E`, `F`, `I`, `B`, `S
 ## Gaps
 
 - **Redis itself is never exercised** — `inline_worker` bypasses the queue, so enqueue/consume behavior is untested.
+- **The bookmark saver's SSRF guard is tested against IP literals only** — no test makes a real network request, so DNS-based edge cases (rebinding, a hostname resolving to multiple addresses where only some are private) aren't exercised.
+- **OCR has no round-trip test** — `test_invalid_image_falls_back_to_needs_ocr` only proves the fallback path; nothing in the suite runs a real Tesseract pass, since CI installs the binary but no test currently feeds it a real scanned image.
 - **No coverage measurement.**
 - **Playwright suite targets the web app only** and does not cover the API.
 - **CI does not gate deploys.** Render and Vercel both deploy on push independently of the workflow result, so a red build still ships. Render: Settings → Build & Deploy → "Wait for CI Checks". Vercel: Settings → Git → "Ignored Build Step".

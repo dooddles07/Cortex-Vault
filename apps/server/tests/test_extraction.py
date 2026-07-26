@@ -96,12 +96,47 @@ async def test_empty_text_file_is_skipped():
     assert result.content is None
 
 
-async def test_binary_is_stored_but_marked_unsupported():
-    result = await extract_text(b"\x89PNG\r\n", "image/png", "shot.png")
+async def test_unrecognized_binary_is_stored_but_marked_unsupported():
+    result = await extract_text(b"\x50\x4b\x03\x04archive", "application/zip", "bundle.zip")
 
     assert result.doc_type == "file"
     assert result.status == "unsupported"
     assert result.content is None
+
+
+async def test_invalid_image_falls_back_to_needs_ocr():
+    """A malformed image can't be opened, so OCR can't run on it. Same
+    fallback as a scanned PDF: flagged for OCR rather than crashing."""
+    result = await extract_text(b"\x89PNG\r\n", "image/png", "shot.png")
+
+    assert result.doc_type == "image"
+    assert result.status == "needs_ocr"
+    assert result.content is None
+
+
+async def test_docx_without_python_docx_installed_is_marked_failed_not_crashed():
+    """Guards the failure path if the docx extractor ever raises — a broken
+    or unsupported .docx must not crash the upload."""
+    docx_mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    result = await extract_text(b"not a real docx", docx_mime, "notes.docx")
+
+    assert result.doc_type == "docx"
+    assert result.status == "failed"
+    assert result.content is None
+
+
+async def test_pptx_detected_by_extension():
+    result = await extract_text(b"not a real pptx", "application/octet-stream", "deck.pptx")
+
+    assert result.doc_type == "pptx"
+    assert result.status == "failed"
+
+
+async def test_xlsx_detected_by_extension():
+    result = await extract_text(b"not a real xlsx", "application/octet-stream", "sheet.xlsx")
+
+    assert result.doc_type == "xlsx"
+    assert result.status == "failed"
 
 
 async def test_invalid_utf8_does_not_raise():
