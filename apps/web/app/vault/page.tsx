@@ -8,7 +8,7 @@ import {
   NotebookPen,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { IngestProgress } from "@/components/ingest-progress";
 import { UploadDropzone } from "@/components/upload-dropzone";
@@ -55,11 +55,17 @@ export default function VaultPage() {
   const [pendingTrash, setPendingTrash] = useState<Document | null>(null);
   const [trashing, setTrashing] = useState(false);
 
+  const loading = useRef(false);
   const load = useCallback(() => {
+    if (loading.current) return;
+    loading.current = true;
     api
       .documents({ limit: 50 })
       .then((page) => setDocuments(page.items))
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(e.message))
+      .finally(() => {
+        loading.current = false;
+      });
   }, []);
 
   useEffect(() => {
