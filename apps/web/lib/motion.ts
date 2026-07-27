@@ -1,4 +1,4 @@
-import type { Transition, Variants } from "motion/react";
+import type { Transition } from "motion/react";
 
 /**
  * Motion constants mirroring tokens.css 1:1. Framer Motion takes seconds, the
@@ -33,51 +33,3 @@ export const SPRING = {
 
 /** List and grid item entrance offset. */
 export const STAGGER = 0.04;
-
-export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: DURATION.page, ease: EASE.standard },
-  },
-};
-
-export const fade: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: DURATION.base, ease: EASE.out } },
-};
-
-/** Dialogs, sheets and the command palette all enter from 0.96. */
-export const scaleIn: Variants = {
-  hidden: { opacity: 0, scale: 0.96 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: DURATION.slow, ease: EASE.spring },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.96,
-    transition: { duration: exitOf(DURATION.slow), ease: EASE.in },
-  },
-};
-
-export const staggerChildren = (delayChildren = 0): Variants => ({
-  hidden: {},
-  show: { transition: { staggerChildren: STAGGER, delayChildren } },
-});
-
-/**
- * Reduced motion collapses everything to a 100ms opacity fade - no translate,
- * no scale. Pass the result straight into `variants`.
- */
-export function reduceVariants(variants: Variants, reduced: boolean): Variants {
-  return reduced ? fadeOnly : variants;
-}
-
-const fadeOnly: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: DURATION.instant } },
-  exit: { opacity: 0, transition: { duration: DURATION.instant } },
-};
