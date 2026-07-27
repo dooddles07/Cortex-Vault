@@ -9,6 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir .
 
+# tiktoken fetches its BPE vocab file from a CDN on first use unless it's
+# already cached. Baking it into the image at build time means chunking never
+# depends on outbound network access at runtime, same principle as OCR being
+# self-hosted rather than a cloud call.
+ENV TIKTOKEN_CACHE_DIR=/opt/tiktoken_cache
+RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
+
 COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic

@@ -142,3 +142,23 @@ def test_conversation_is_scoped_to_its_owner(client, auth, inline_worker):
     stolen = client.get(f"/api/v1/conversations/{conversation_id}", headers=stranger)
     assert stolen.status_code == 404
     assert client.get("/api/v1/conversations", headers=stranger).json() == []
+
+
+async def test_long_conversation_gets_a_summary(client, auth, inline_worker, db_session):
+    """Once a conversation outgrows the raw history window (6 messages),
+    older turns should be folded into conversations.summary rather than
+    simply falling off — see chat_service._update_summary."""
+    from app.models import Conversation
+
+    headers = auth()
+    _seed(client, headers)
+
+    _, first = _chat(client, headers, "First question")
+    conversation_id = next(p for n, p in first if n == "done")["conversation_id"]
+
+    # 3 more turns -> 8 messages total, past the 6-message raw window.
+    for i in range(3):
+        _chat(client, headers, f"Follow up {i}", conversation_id=conversation_id)
+
+    convo = await db_session.get(Conversation, conversation_id)
+    assert convo.summary, "summary should be set once history exceeds the raw window"

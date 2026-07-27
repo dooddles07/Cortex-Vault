@@ -1,7 +1,7 @@
 import hashlib
 import uuid
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -29,8 +29,22 @@ async def run_ingest(db: AsyncSession, document_id: uuid.UUID) -> int:
         await db.commit()
         return 0
 
+    new_hash = hashlib.sha256(doc.content.encode()).hexdigest()
+
+    # Embedding cache: if this exact content was already indexed, re-embedding
+    # is pure waste against a free daily provider quota. Only short-circuits
+    # when chunks still actually exist — a hash match with no chunks (e.g. a
+    # prior run failed after computing the hash but before writing chunks)
+    # must still fall through and embed for real.
+    if new_hash == doc.content_hash and doc.ingest_status == "indexed":
+        existing = await db.scalar(
+            select(func.count()).select_from(Chunk).where(Chunk.document_id == document_id)
+        )
+        if existing:
+            return existing
+
     doc.ingest_status = "processing"
-    doc.content_hash = hashlib.sha256(doc.content.encode()).hexdigest()
+    doc.content_hash = new_hash
     await db.commit()
 
     await db.execute(delete(Chunk).where(Chunk.document_id == document_id))

@@ -4,6 +4,20 @@ Notable changes to CortexVault, newest first. Grouped by day rather than semanti
 
 ## 2026-07-27
 
+### Added (RAG quality + ops, later same day)
+- **Token-based chunking** (`tiktoken`, `cl100k_base`) replaces character counting — `CHUNK_SIZE`/`CHUNK_OVERLAP` are now tokens (defaults changed to 200/30, roughly equivalent to the old 800/120 characters for English prose). Docker image pre-warms the tokenizer's vocab file at build time so chunking has no runtime network dependency.
+- **Embedding cache** — `content_hash` (previously write-only) now short-circuits re-ingestion when content is byte-identical to what's already indexed, skipping a wasted re-embed against the free daily quota
+- **Query rewriting** — before retrieval, the chat LLM resolves pronouns/references in follow-up questions against conversation history; skipped (no extra call) on a conversation's first message; falls back to the raw question if the rewrite call fails
+- **Conversation summarization** — `conversations.summary` (previously write-only) now gets folded in once a conversation outgrows the 6-message raw history window, replacing a hard cutoff that silently dropped older context
+- Connection pool size made explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`, defaults unchanged from SQLAlchemy's own 5/10)
+
+### Fixed (docs)
+- RAG.md, DATABASE.md: several stale claims caught in this pass — `content_hash`/`conversations.summary` no longer described as unused, `file_path` no longer described as unwritten (R2 wiring shipped earlier the same day), search-filter support noted, connection-pool section updated
+
+### Deferred
+- **Re-ranking model** — needs a provider decision (hosted rerank API vs. a local cross-encoder too heavy for the free-tier shared vCPU), same class of decision as R2/email, not a unilateral pick
+- **Error tracking** (Sentry) — needs an account, same pattern
+
 ### Changed
 - Render's `cortexvault-api` Auto-Deploy set to "After CI Checks Pass" (dashboard setting, not code) — a red `Server (lint + tests)` run now blocks the API deploy instead of shipping regardless
 

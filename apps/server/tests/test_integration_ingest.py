@@ -81,6 +81,43 @@ def test_reingest_replaces_chunks_rather_than_duplicating(client, auth, inline_w
     assert second == first
 
 
+def test_reingest_with_unchanged_content_skips_re_embedding(
+    client, auth, inline_worker, monkeypatch
+):
+    """Embedding cache: identical content must not spend the free daily quota
+    re-embedding chunks that are already correct."""
+    headers = auth()
+    doc_id = _create(client, headers)
+
+    async def _fail_if_called(_texts):
+        raise AssertionError("must not re-embed unchanged content")
+
+    monkeypatch.setattr("app.services.ingest_service.embed_texts", _fail_if_called)
+
+    response = client.patch(
+        f"/api/v1/documents/{doc_id}", json={"content": CONTENT}, headers=headers
+    )
+    assert response.status_code == 200
+
+    status = client.get(f"/api/v1/uploads/{doc_id}/status", headers=headers).json()
+    assert status["ingest_status"] == "indexed"
+
+
+def test_reingest_with_changed_content_does_re_embed(client, auth, inline_worker):
+    headers = auth()
+    doc_id = _create(client, headers)
+    first = client.get("/api/v1/dashboard/summary", headers=headers).json()["chunks"]
+
+    client.patch(
+        f"/api/v1/documents/{doc_id}",
+        json={"content": CONTENT + "\n\nA genuinely new paragraph."},
+        headers=headers,
+    )
+    second = client.get("/api/v1/dashboard/summary", headers=headers).json()["chunks"]
+
+    assert second > first
+
+
 def test_trashed_document_is_excluded_from_listing(client, auth, inline_worker):
     headers = auth()
     doc_id = _create(client, headers)

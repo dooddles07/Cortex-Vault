@@ -22,6 +22,8 @@ Backend deployed and verified end-to-end in production.
 | Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
 | Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
 | Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset (Resend), audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny) |
+| RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff) |
+| Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`) |
 
 ## P0 — remaining MVP gaps
 
@@ -29,7 +31,7 @@ Nothing left unbuilt from the original P0 list in [FEATURES.md](FEATURES.md). Em
 
 ## P1
 
-Version history · document summaries · auto tag/folder suggestions · conversation memory beyond the 6-turn window · YouTube transcript import · code snippet capture · meeting notes · browser extension clipper · sharing (link and user) · workspaces and roles · notifications · admin dashboard (including a read endpoint for `audit_logs`) · saved searches.
+Version history · document summaries · auto tag/folder suggestions · YouTube transcript import · code snippet capture · meeting notes · browser extension clipper · sharing (link and user) · workspaces and roles · notifications · admin dashboard (including a read endpoint for `audit_logs`) · saved searches.
 
 ## P2
 
@@ -45,9 +47,9 @@ Ordered by risk, not effort.
 3. **No staging environment.**
 4. ~~Token revocation~~ **Done.** Sessions table keyed by JWT `jti`; sign-out and password reset both revoke. See [SECURITY.md](SECURITY.md).
 5. **Embedding dimension is load-bearing.** 768 is forced by pgvector's 2000-dim HNSW cap. Changing provider means a migration, index rebuild, and full re-embed — see [RAG.md](RAG.md).
-6. **No re-ranking model.** `RERANK_TOP_N` truncates; it does not re-score. The name overstates it.
-7. **No embedding cache.** `content_hash` is stored and unused.
-8. **No connection-pool tuning.** Will bite before CPU does when API replicas scale.
+6. **No re-ranking model.** `RERANK_TOP_N` truncates; it does not re-score. The name overstates it. A real fix needs a hosted rerank API (Cohere, Jina — a new external-service decision) or a local cross-encoder (too heavy for the free-tier shared vCPU) — deferred pending that choice.
+7. ~~No embedding cache~~ **Done.** `content_hash` now short-circuits a re-ingest when content is unchanged. See [RAG.md](RAG.md).
+8. ~~No connection-pool tuning~~ **Done, partially.** Pool size/overflow are now explicit config (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`, default 5/10 — unchanged from SQLAlchemy's own defaults, just no longer invisible). Still revisit before API replicas scale — the ceiling itself hasn't moved.
 9. **Free-tier AI has privacy implications.** Google may train on free-tier data — blocking for real user documents. See [AI.md](AI.md).
 10. **OCR runs inline, on Render's shared free vCPU.** No worker is deployed, so a scanned PDF's OCR pass competes with request handling in the same process and blocks that one upload request for its duration. Cloudflare R2 (object storage) and Groq (chat) are the only external services in the stack that could still function if this ran in a real worker — restoring `INGEST_MODE=queue` would move OCR off the request path.
 11. **Trash and session-row purges are opportunistic, not scheduled.** No free host offers a cron trigger the API can use, so `purge_expired_trash` and `purge_old_sessions` both run once on API startup (`app/main.py`) — which, on Render free, is every time the instance wakes from an idle sleep. A vault that stays busy enough to never cold-start could accumulate expired rows indefinitely between deploys. A real fix would be a Cloudflare Worker Cron Trigger (free tier includes them) calling an internal purge endpoint — not built, since it adds a second free service to operate for a low-stakes feature.
@@ -58,3 +60,5 @@ Ordered by risk, not effort.
 
 1. Decide the `email_verified` enforcement policy — the mechanism is built, gating isn't
 2. MFA (TOTP + backup codes) — deferred out of the security pass that shipped everything else in this list
+3. Error tracking (Sentry, free tier) — needs an account, same pattern as R2/Resend
+4. Re-ranking model — needs a provider decision (hosted API vs. local cross-encoder) before it can be built

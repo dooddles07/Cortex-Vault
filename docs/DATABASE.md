@@ -60,8 +60,8 @@ erDiagram
 | `title` | `VARCHAR(500)` | |
 | `content` | `TEXT` | Extracted text; null for un-parsed binaries |
 | `summary` | `TEXT` | Reserved — nothing writes it yet |
-| `source_url`, `file_path` | `TEXT` | `file_path` reserved for object storage |
-| `content_hash` | `VARCHAR(64)` | SHA-256, indexed. For future dedupe. |
+| `source_url`, `file_path` | `TEXT` | `file_path` is the R2 object key, written when `R2_*` is configured; null otherwise |
+| `content_hash` | `VARCHAR(64)` | SHA-256, indexed. Backs the embedding cache — an unchanged hash on re-ingest skips re-embedding. See [RAG.md](RAG.md). |
 | `ingest_status` | `VARCHAR(30)` | `pending`/`processing`/`indexed`/`needs_ocr`/`unsupported`/`skipped_empty`/`failed` |
 | `starred` | `BOOLEAN` | Toggled via `POST`/`DELETE /documents/:id/star` |
 | `deleted_at` | `TIMESTAMPTZ` | Soft delete, indexed. Non-null = trashed. Purged past 30 days — see Operational notes |
@@ -89,7 +89,7 @@ CREATE INDEX ix_chunks_content_fts ON chunks USING gin (to_tsvector('english', c
 
 ### conversations, messages, message_citations
 
-`conversations` holds `title` (auto-set from the first question) and a reserved `summary`. `messages` stores `role` (`user`/`assistant`) and `content`. `message_citations` links an assistant message to the chunks that grounded it, with `rank` preserving retrieval order — this is what makes every answer auditable.
+`conversations` holds `title` (auto-set from the first question) and `summary` — written once a conversation outgrows the 6-message raw history window, folding the aging-out turns in via an LLM call. See [RAG.md](RAG.md). `messages` stores `role` (`user`/`assistant`) and `content`. `message_citations` links an assistant message to the chunks that grounded it, with `rank` preserving retrieval order — this is what makes every answer auditable.
 
 ### jobs
 
@@ -141,8 +141,8 @@ Revision `0001_initial` runs `CREATE EXTENSION IF NOT EXISTS vector` before any 
 
 ## Operational notes
 
-- **No connection pool tuning.** Defaults with `pool_pre_ping=True`. Revisit when API replicas scale out — Postgres connection limits bite before CPU does.
+- **Connection pool size is explicit now** (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`, default 5/10 — unchanged from SQLAlchemy's own defaults, just no longer invisible), plus `pool_pre_ping=True`. Still revisit when API replicas scale out — the ceiling itself hasn't moved, Postgres connection limits still bite before CPU does.
 - **Soft-delete cleanup runs, but opportunistically, not on a schedule.** `purge_expired_trash` (30-day window) runs once on API startup — see [ROADMAP.md](ROADMAP.md) engineering debt for why there's no real cron on the free tier.
-- **`content_hash` is written but unused.** Dedupe on re-upload is not implemented.
+- **`content_hash` backs the embedding cache** (see above) but does not dedupe across *different* documents sharing identical content — only a single document's own re-ingest.
 - **No endpoint reads `audit_logs`.** There's no admin role in this single-tenant build to gate one behind, so today it's direct-database-access only.
 - **`sessions` rows past `expires_at` are purged 30 days later**, on the same opportunistic API-startup pass as trash (`session_service.purge_old_sessions`). The 30-day grace window past the token's own expiry is deliberate slack, not precision.

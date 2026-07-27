@@ -4,20 +4,32 @@ import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import NotFoundError
 from app.db.session import SessionLocal
 from app.models import Conversation, Message, MessageCitation
-from app.rag.prompts import build_messages
+from app.rag.prompts import build_messages, build_rewrite_messages, build_summarize_messages
 from app.rag.providers import get_chat_provider
 from app.rag.retrieval import hybrid_search
 
 logger = logging.getLogger(__name__)
 
+# Raw turns always sent verbatim. Once a conversation has more messages than
+# this, the overflow is folded into conversations.summary instead of simply
+# falling off the end — see _update_summary.
 _HISTORY_TURNS = 6
+
+
+async def _consume(messages: list[dict[str, str]]) -> str:
+    """Runs the chat provider to completion for an internal call (query
+    rewrite, summarization) that has no reason to stream to a client."""
+    text = ""
+    async for token in get_chat_provider().stream(messages):
+        text += token
+    return text.strip()
 
 
 async def list_conversations(db: AsyncSession, user_id: uuid.UUID) -> list[Conversation]:
@@ -79,7 +91,10 @@ async def stream_answer(
             db.add(user_message)
             await db.commit()
 
-            hits = (await hybrid_search(db, user_id, question))[: settings.RERANK_TOP_N]
+            history = await _recent_history(db, convo.id, exclude_id=user_message.id)
+            search_query = await _rewrite_query(question, history)
+
+            hits = (await hybrid_search(db, user_id, search_query))[: settings.RERANK_TOP_N]
             yield _sse(
                 "citations",
                 [
@@ -93,8 +108,7 @@ async def stream_answer(
                 ],
             )
 
-            history = await _recent_history(db, convo.id, exclude_id=user_message.id)
-            messages = build_messages(question, [h.content for h in hits], history)
+            messages = build_messages(question, [h.content for h in hits], history, convo.summary)
 
             answer = ""
             async for token in get_chat_provider().stream(messages):
@@ -110,6 +124,8 @@ async def stream_answer(
             )
             _touch(convo)
             await db.commit()
+
+            await _update_summary(db, convo, exclude_id=user_message.id)
 
             yield _sse(
                 "done", {"conversation_id": str(convo.id), "message_id": str(assistant.id)}
@@ -149,6 +165,56 @@ async def _recent_history(
     )
     messages = list((await db.scalars(stmt)).all())[::-1]
     return [{"role": m.role, "content": m.content} for m in messages]
+
+
+async def _rewrite_query(question: str, history: list[dict[str, str]]) -> str:
+    """Resolves pronouns/references against history before embedding, so a
+    follow-up like "what about the second one?" retrieves on its own merits
+    rather than on "second one". A first message has no history to resolve
+    against, so it's returned unchanged without spending an extra LLM call.
+    A rewrite failure must not break the chat — retrieval just falls back to
+    the raw question, exactly today's behavior."""
+    if not history:
+        return question
+    try:
+        rewritten = await _consume(build_rewrite_messages(question, history))
+    except Exception:
+        logger.warning("query rewrite failed; using the raw question", exc_info=True)
+        return question
+    return rewritten or question
+
+
+async def _update_summary(db: AsyncSession, convo: Conversation, exclude_id: uuid.UUID) -> None:
+    """Folds messages older than the _HISTORY_TURNS window into
+    conversations.summary, so context beyond the raw window is compacted
+    rather than simply dropped. Runs after the visible answer has already
+    streamed, so a slow or failing summarization never delays or breaks the
+    user-facing response."""
+    total = await db.scalar(
+        select(func.count()).select_from(Message).where(Message.conversation_id == convo.id)
+    )
+    if total <= _HISTORY_TURNS:
+        return
+
+    older_stmt = (
+        select(Message)
+        .where(Message.conversation_id == convo.id, Message.id != exclude_id)
+        .order_by(Message.created_at, Message.id)
+        .limit(total - _HISTORY_TURNS)
+    )
+    older = list((await db.scalars(older_stmt)).all())
+    if not older:
+        return
+
+    older_dicts = [{"role": m.role, "content": m.content} for m in older]
+    try:
+        summary = await _consume(build_summarize_messages(older_dicts, convo.summary))
+    except Exception:
+        logger.warning("conversation summarization failed for %s", convo.id, exc_info=True)
+        return
+    if summary:
+        convo.summary = summary
+        await db.commit()
 
 
 def _sse(event: str, data: object) -> str:

@@ -46,10 +46,15 @@ class Settings(BaseSettings):
     OLLAMA_CHAT_MODEL: str = "llama3.1"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
-    CHUNK_SIZE: int = 800
-    CHUNK_OVERLAP: int = 120
+    # Token-based, not character-based — see docs/RAG.md. 200 tokens is
+    # roughly the 800-character default this replaced, for English prose.
+    CHUNK_SIZE: int = 200
+    CHUNK_OVERLAP: int = 30
     RETRIEVAL_TOP_K: int = 20
     RERANK_TOP_N: int = 6
+
+    DB_POOL_SIZE: int = 5
+    DB_POOL_MAX_OVERFLOW: int = 10
 
     MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
 
