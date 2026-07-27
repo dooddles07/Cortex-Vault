@@ -2,6 +2,23 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-27
+
+### Added
+- Collections — `collections`/`collection_items` tables (migration `0002`), CRUD plus document membership, scoped to owner on both sides
+- Favorites — `POST`/`DELETE /documents/:id/star`
+- Search filters — `type`, `folder_id`, `tag_id`, `date_from`, `date_to` on `GET /search`, layered under existing owner+trash scoping
+- Trash retention purge (30-day window) — runs opportunistically on API startup, since the free tier has no cron trigger
+
+### Fixed
+- `delete_document` now also deletes the R2 original — a hard-deleted document was leaving its file in the bucket forever, silently counting against the free storage tier
+- **CI was silently broken since the inline-ingestion refactor.** The `inline_worker` test fixture patched `enqueue_ingest`, an attribute that no longer exists — `documents.py`/`uploads.py`/`bookmarks.py` call `dispatch_ingest` now. This went undetected because CI's GitHub Actions budget was $0 at the time, so no job had ever actually run; once real runs started, every integration test using that fixture failed at setup. Fixed the fixture to patch the current name.
+- API.md's Uploads section still described OCR and office formats as unsupported after they shipped the day before — missed in that pass, caught in this one
+
+### Docs
+- ROADMAP.md's CI entry corrected — it runs now, it just isn't wired to gate Render/Vercel deploys yet
+- API.md, DATABASE.md updated for collections/favorites/search-filters endpoints and schema
+
 ## 2026-07-26
 
 ### Added

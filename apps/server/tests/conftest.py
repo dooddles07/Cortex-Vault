@@ -89,15 +89,15 @@ def fake_providers(monkeypatch):
 
 @pytest.fixture
 def inline_worker(monkeypatch):
-    """Run the arq task synchronously on enqueue, so the full ingest path is
-    exercised without a running worker or Redis."""
+    """Run the arq task synchronously on dispatch, so the full ingest path is
+    exercised without a running worker or Redis — regardless of INGEST_MODE."""
     from app.workers.tasks.ingest import ingest_document
 
-    async def _run(document_id, job_id):
+    async def _run(_background, document_id, job_id):
         await ingest_document({}, str(document_id), str(job_id))
 
-    for module in ("app.api.v1.documents", "app.api.v1.uploads"):
-        monkeypatch.setattr(f"{module}.enqueue_ingest", _run)
+    for module in ("app.api.v1.documents", "app.api.v1.uploads", "app.api.v1.bookmarks"):
+        monkeypatch.setattr(f"{module}.dispatch_ingest", _run)
 
 
 @pytest.fixture
