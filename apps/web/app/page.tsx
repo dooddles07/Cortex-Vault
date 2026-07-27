@@ -323,7 +323,7 @@ export default function LandingPage() {
 
                     <div className="flex-1" />
                     <Link
-                      href={tier.name === "Enterprise" ? "/sign-up" : "/sign-up"}
+                      href="/sign-up"
                       className={`inline-flex h-11 items-center justify-center rounded-md px-4 text-label transition-colors duration-(--duration-fast) ${
                         tier.featured
                           ? "bg-primary text-fg-on-primary hover:bg-primary-hover"
