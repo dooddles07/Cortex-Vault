@@ -53,6 +53,7 @@ export function CommandPalette({
   const [searching, setSearching] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
   const [active, setActive] = React.useState(0);
+  const requestId = React.useRef(0);
 
   const routes = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -107,17 +108,22 @@ export function CommandPalette({
     }
     setSearching(true);
     const timer = setTimeout(() => {
+      const id = ++requestId.current;
       api
         .search(q, "hybrid", 6)
         .then((result) => {
+          if (id !== requestId.current) return; // a newer keystroke's search already landed
           setHits(result.hits);
           setFailed(false);
         })
         .catch(() => {
+          if (id !== requestId.current) return;
           setHits([]);
           setFailed(true);
         })
-        .finally(() => setSearching(false));
+        .finally(() => {
+          if (id === requestId.current) setSearching(false);
+        });
     }, 200);
     return () => clearTimeout(timer);
   }, [query]);

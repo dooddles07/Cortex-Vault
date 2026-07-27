@@ -45,21 +45,25 @@ function SearchScreen() {
   const [active, setActive] = useState(0);
   const [source, setSource] = useState<Source | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  const requestId = useRef(0);
 
   const run = useCallback(
     async (q: string, searchMode: Mode) => {
       if (!q) return;
+      const id = ++requestId.current;
       setBusy(true);
       setError(null);
       setAsked(q);
       try {
         const result = await api.search(q, searchMode);
+        if (id !== requestId.current) return; // a newer search already landed
         setHits(result.hits);
         setActive(0);
       } catch (err) {
+        if (id !== requestId.current) return;
         setError(err instanceof Error ? err.message : "Search failed.");
       } finally {
-        setBusy(false);
+        if (id === requestId.current) setBusy(false);
       }
     },
     [],
