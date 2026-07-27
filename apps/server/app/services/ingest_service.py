@@ -24,8 +24,18 @@ async def queue_ingest(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.U
 
 
 async def run_ingest(db: AsyncSession, document_id: uuid.UUID) -> int:
-    """Chunk + embed a document. Idempotent: replaces existing chunks."""
-    doc = await db.get(Document, document_id)
+    """Chunk + embed a document. Idempotent: replaces existing chunks.
+
+    Locks the document row for the duration of the ingest so two concurrent
+    ingest attempts on the same document (e.g. an upload followed immediately
+    by a manual retry) serialize instead of racing on the delete-then-insert
+    of its chunks — the second call blocks here until the first commits, then
+    proceeds against the now-updated row (and the embedding-cache check below
+    will usually short-circuit it).
+    """
+    doc = await db.scalar(
+        select(Document).where(Document.id == document_id).with_for_update()
+    )
     if not doc:
         raise NotFoundError("Document")
     if not doc.content:
