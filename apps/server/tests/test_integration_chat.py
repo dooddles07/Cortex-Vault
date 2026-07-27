@@ -118,8 +118,11 @@ async def test_provider_failure_emits_an_error_event(client, auth, inline_worker
         lambda *_: FakeChatProvider(fail_after=1),
     )
 
+    # Match the message: a bare RuntimeError also catches unrelated failures
+    # (an event-loop misuse, for one), which silently empties `frames` and turns
+    # a real bug into a confusing assertion error further down.
     frames: list[str] = []
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="chat stream failed"):
         async for frame in stream_answer(user_id, "What merges the arms?", None):
             frames.append(frame)
 

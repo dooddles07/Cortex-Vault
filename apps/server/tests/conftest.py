@@ -13,11 +13,30 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
-from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
+# Swap in a NullPool engine BEFORE app.main is imported, because chat_service,
+# workers.tasks.ingest and db.session all bind `SessionLocal` at module import
+# time — patching later would only reach whichever reference was rebound.
+#
+# Why NullPool: tests drive the app from two different event loops. Requests run
+# on the TestClient's blocking portal; async tests and fixtures run on
+# pytest-asyncio's loop. A pooled asyncpg connection is bound to the loop that
+# created it, so any reuse across that boundary fails with "Future attached to a
+# different loop" — and, worse, poisons the pooled connection for whichever test
+# draws it next. NullPool opens a fresh connection per checkout and closes it on
+# release, so a connection can never outlive the loop it was made on.
+import app.db.session as _db_session  # noqa: E402
 from app.core.config import settings
-from app.main import app
-from tests.helpers import FakeChatProvider, FakeEmbeddingProvider
+
+_db_session.engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
+_db_session.SessionLocal = async_sessionmaker(_db_session.engine, expire_on_commit=False)
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import app  # noqa: E402
+from tests.helpers import FakeChatProvider, FakeEmbeddingProvider  # noqa: E402
 
 _HERE = pathlib.Path(__file__).parent.parent
 
@@ -120,26 +139,13 @@ async def db_session():
     """Raw AsyncSession for tests that need to manipulate rows directly (e.g.
     backdating a timestamp), bypassing the API.
 
-    Deliberately its own engine, not app.db.session's. `client` (TestClient)
-    runs every request inside anyio's BlockingPortal, a persistent background
-    thread with its own event loop, separate from whatever loop pytest-asyncio
-    runs this async fixture in. A connection pool shared between the two
-    hands out connections bound to one loop to callers on the other —
-    asyncpg raises "Future attached to a different loop", and the poisoned
-    pooled connection then fails whichever unrelated test draws it next.
-    A dedicated engine, disposed at teardown, never enters that shared pool.
+    Safe to share the app's session factory only because the test engine uses
+    NullPool — see the note at the top of this file. This fixture runs on
+    pytest-asyncio's loop while requests run on the TestClient's portal loop,
+    which pooled connections would not survive.
     """
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-    from app.core.config import settings
-
-    engine = create_async_engine(settings.DATABASE_URL)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with session_factory() as session:
-            yield session
-    finally:
-        await engine.dispose()
+    async with _db_session.SessionLocal() as session:
+        yield session
 
 
 @pytest.fixture
