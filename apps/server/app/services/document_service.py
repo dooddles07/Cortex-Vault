@@ -123,10 +123,12 @@ async def delete_document(db: AsyncSession, user_id: uuid.UUID, document_id: uui
     from app.storage.r2 import delete_original
 
     doc = await get_document(db, user_id, document_id)
-    file_path = doc.file_path
+    # Storage first: a leftover DB row after a crash is recoverable (just
+    # re-run the delete), but an R2 object with its DB row already gone is an
+    # invisible, permanent leak with nothing left to retry it from.
+    await delete_original(doc.file_path)
     await db.delete(doc)
     await db.commit()
-    await delete_original(file_path)
 
 
 async def purge_expired_trash(db: AsyncSession) -> int:
@@ -144,10 +146,9 @@ async def purge_expired_trash(db: AsyncSession) -> int:
     )
     rows = list(expired)
     for doc in rows:
-        file_path = doc.file_path
+        await delete_original(doc.file_path)
         await db.delete(doc)
         await db.commit()
-        await delete_original(file_path)
     if rows:
         logger.info("purged %d expired trashed document(s)", len(rows))
     return len(rows)
