@@ -132,12 +132,16 @@ async def stream_answer(
             yield _sse(
                 "done", {"conversation_id": str(convo.id), "message_id": str(assistant.id)}
             )
-        except Exception as exc:
-            # The stream already returned 200, so failures can only be reported in-band.
+        except Exception:
+            # The stream already returned 200, so failures can only be reported
+            # in-band. Do not re-raise: the response is already sent and this
+            # generator is what StreamingResponse iterates directly, so a raise
+            # here would additionally surface as an unhandled ASGI exception —
+            # double-reporting the same failure to Sentry (once via this log
+            # call, once via the ASGI integration) against its free 5k/month cap.
             logger.exception("chat stream failed for user %s", user_id)
             await db.rollback()
             yield _sse("error", {"message": "The assistant failed to complete this answer."})
-            raise RuntimeError("chat stream failed") from exc
 
 
 async def _create_conversation(

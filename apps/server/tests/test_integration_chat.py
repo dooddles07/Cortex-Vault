@@ -5,8 +5,6 @@ instead of activity, and provider failures ending the stream silently."""
 import json
 import re
 
-import pytest
-
 from tests.helpers import FakeChatProvider, requires_db
 
 pytestmark = requires_db
@@ -102,8 +100,10 @@ async def test_provider_failure_emits_an_error_event(client, auth, inline_worker
     """Regression: a mid-stream failure closed the connection with no signal,
     leaving the client unable to distinguish success from failure.
 
-    Driven through the generator rather than the client: the exception that ends
-    the stream would otherwise surface before the emitted frames can be read.
+    The generator does not raise after emitting the error frame: the response
+    already returned 200, so a raise here would only surface as an unhandled
+    ASGI exception on top of the error already reported in-band and logged —
+    double-counting one failure against Sentry's free event cap.
     """
     import uuid as _uuid
 
@@ -118,15 +118,10 @@ async def test_provider_failure_emits_an_error_event(client, auth, inline_worker
         lambda *_: FakeChatProvider(fail_after=1),
     )
 
-    # Match the message: a bare RuntimeError also catches unrelated failures
-    # (an event-loop misuse, for one), which silently empties `frames` and turns
-    # a real bug into a confusing assertion error further down.
-    frames: list[str] = []
-    with pytest.raises(RuntimeError, match="chat stream failed"):
-        async for frame in stream_answer(user_id, "What merges the arms?", None):
-            frames.append(frame)
+    frames = [frame async for frame in stream_answer(user_id, "What merges the arms?", None)]
 
     assert any(f.startswith("event: citations") for f in frames)
+    assert any(f.startswith("event: error") for f in frames)
     assert any(f.startswith("event: token") for f in frames), "partial answer expected"
     assert frames[-1].startswith("event: error"), frames[-1]
     assert not any(f.startswith("event: done") for f in frames)
