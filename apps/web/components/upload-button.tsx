@@ -48,7 +48,7 @@ export function UploadButton({ onUploaded }: { onUploaded?: () => void }) {
         aria-hidden
         tabIndex={-1}
         onChange={onPick}
-        accept=".pdf,.txt,.md,.csv,.json,.xml,.html"
+        accept=".pdf,.txt,.md,.csv,.json,.xml,.html,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.tiff,.bmp"
       />
       <Button size="md" disabled={busy} onClick={() => input.current?.click()}>
         {busy ? "Uploading…" : "Upload"}

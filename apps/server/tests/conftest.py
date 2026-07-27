@@ -101,6 +101,16 @@ def inline_worker(monkeypatch):
 
 
 @pytest.fixture
+async def db_session():
+    """Raw AsyncSession for tests that need to manipulate rows directly (e.g.
+    backdating a timestamp), bypassing the API."""
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as session:
+        yield session
+
+
+@pytest.fixture
 def auth(client: TestClient):
     """Register a fresh user and return its Authorization header."""
 

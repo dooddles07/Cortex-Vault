@@ -4,6 +4,7 @@ from app.api.v1 import (
     auth,
     bookmarks,
     chat,
+    collections,
     dashboard,
     documents,
     folders,
@@ -22,5 +23,6 @@ api_router.include_router(uploads.router)
 api_router.include_router(bookmarks.router)
 api_router.include_router(folders.router)
 api_router.include_router(tags.router)
+api_router.include_router(collections.router)
 api_router.include_router(search.router)
 api_router.include_router(chat.router)

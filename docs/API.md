@@ -77,7 +77,9 @@ curl -X POST $BASE/api/v1/auth/sign-up \
 | `PATCH` | `/documents/{id}` | Changing `content` triggers re-ingestion |
 | `POST` | `/documents/{id}/trash` | Soft delete (sets `deleted_at`) |
 | `POST` | `/documents/{id}/restore` | Clears `deleted_at` |
-| `DELETE` | `/documents/{id}` | Hard delete; cascades to chunks |
+| `POST` | `/documents/{id}/star` | Sets `starred = true` |
+| `DELETE` | `/documents/{id}/star` | Sets `starred = false` |
+| `DELETE` | `/documents/{id}` | Hard delete; cascades to chunks; deletes the R2 original if one was stored |
 
 `type` is one of `note`, `pdf`, `bookmark`, `clip`, `youtube`, `snippet`, `meeting`, `voice`, `email`.
 
@@ -90,19 +92,31 @@ List responses are `{items, total, limit, offset}`.
 | `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` (null when nothing is indexable) |
 | `GET` | `/uploads/{document_id}/status` | `ingest_status`, `job_status`, `error` |
 
-Text is extracted at upload time. Supported: **PDF** (via `pypdf`), plain text, Markdown, CSV, JSON, XML, HTML. Detection uses the MIME type, falling back to the file extension.
+Text is extracted at upload time. Supported: **PDF** (via `pypdf`, OCR fallback for scans), **`.docx`/`.pptx`/`.xlsx`** (`python-docx`/`python-pptx`/`openpyxl`), **images** (`.png`/`.jpg`/`.jpeg`/`.webp`/`.tiff`/`.bmp`, via OCR), plain text, Markdown, CSV, JSON, XML, HTML. Detection uses the MIME type, falling back to the file extension.
 
-Anything else is stored but never indexed. Uploads over `MAX_UPLOAD_BYTES` (25MB default) return `413`, rejected mid-read rather than after buffering.
+OCR runs self-hosted Tesseract, inline in the request (no worker deployed — see [ARCHITECTURE.md](ARCHITECTURE.md) for the latency tradeoff this buys). If the runtime has no tesseract binary, OCR falls back to `needs_ocr` rather than failing.
+
+If `R2_*` is configured (see [DEPLOYMENT.md](DEPLOYMENT.md)), the original file is also stored in Cloudflare R2; otherwise it's discarded after extraction.
+
+Anything else (archives, unrecognized binaries) is stored but never indexed. Uploads over `MAX_UPLOAD_BYTES` (25MB default) return `413`, rejected mid-read rather than after buffering.
 
 `ingest_status` values:
 
 | Status | Meaning |
 |---|---|
 | `pending` → `processing` → `indexed` | Normal path |
-| `needs_ocr` | PDF parsed but its text layer is under 32 characters — almost certainly a scan. OCR is not implemented, so it will never be searchable |
-| `unsupported` | File type has no text extractor (images, archives, office formats) |
+| `needs_ocr` | A PDF's text layer is under 32 characters (almost certainly a scan) or an image, and OCR either found nothing or the tesseract binary isn't available in this runtime |
+| `unsupported` | File type has no text extractor (archives, anything unrecognized) |
 | `skipped_empty` | Decoded to nothing |
 | `failed` | Extraction or embedding raised; see `error` |
+
+## Bookmarks
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/bookmarks` | `url`, `folder_id?`. Fetches the page, extracts readable text (`trafilatura`), returns `202` + `document_id`, `job_id` |
+
+Guarded against SSRF: only `http`/`https`, rejects private/loopback/link-local/cloud-metadata addresses, re-validates every redirect hop. See [SECURITY.md](SECURITY.md).
 
 ## Folders
 
@@ -120,11 +134,22 @@ Anything else is stored but never indexed. Uploads over `MAX_UPLOAD_BYTES` (25MB
 
 | Method | Path | Query |
 |---|---|---|
-| `GET` | `/search` | `q` (required), `mode` (`hybrid\|semantic\|keyword`), `limit` (≤50) |
+| `GET` | `/search` | `q` (required), `mode` (`hybrid\|semantic\|keyword`), `limit` (≤50), `type?`, `folder_id?`, `tag_id?`, `date_from?`, `date_to?` (dates `YYYY-MM-DD`) |
+
+Filters narrow the candidate set before ranking — they can only shrink results, never widen past what owner+trash scoping already allows. `date_to` is inclusive of the whole day.
 
 Returns `{query, mode, hits[]}` where each hit has `chunk_id`, `document_id`, `document_title`, `content`, `score`. Score is a reciprocal-rank-fusion value, not a similarity — it is only meaningful for ordering within one response.
 
 Trashed documents are excluded.
+
+## Collections
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` `POST` | `/collections` | Flat, cross-folder groupings |
+| `DELETE` | `/collections/{id}` | Also removes membership rows (cascade); documents themselves are untouched |
+| `GET` | `/collections/{id}/documents` | Documents in the collection, newest first, trashed excluded |
+| `POST` `DELETE` | `/collections/{id}/documents/{document_id}` | Add/remove — add is idempotent |
 
 ## Chat
 
@@ -161,4 +186,4 @@ curl -N -X POST $BASE/api/v1/chat \
 
 ## Not implemented
 
-Present in [FEATURES.md](FEATURES.md) but absent from the API: collections, favorites/pinning, version history, document summaries, saved searches, sharing, workspaces, notifications, admin, and audit logs.
+Present in [FEATURES.md](FEATURES.md) but absent from the API: version history, document summaries, saved searches, sharing, workspaces, notifications, admin, and audit logs.

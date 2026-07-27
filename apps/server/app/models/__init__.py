@@ -1,4 +1,5 @@
 from app.models.chat import Conversation, Message, MessageCitation
+from app.models.collection import Collection, CollectionItem
 from app.models.document import Chunk, Document, DocumentTag
 from app.models.folder import Folder
 from app.models.job import Job
@@ -7,6 +8,8 @@ from app.models.user import User
 
 __all__ = [
     "Chunk",
+    "Collection",
+    "CollectionItem",
     "Conversation",
     "Document",
     "DocumentTag",

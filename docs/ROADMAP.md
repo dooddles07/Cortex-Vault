@@ -20,6 +20,7 @@ Backend deployed and verified end-to-end in production.
 | Ingestion formats | PDF (`pypdf`), `.docx`/`.pptx`/`.xlsx`, OCR for scans and images (Tesseract, self-hosted), bookmark saver (fetch + `trafilatura` readability extraction) |
 | Object storage | Cloudflare R2, optional — set `R2_*` or originals are discarded after text extraction, same as before |
 | Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
+| Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
 
 ## P0 — remaining MVP gaps
 
@@ -28,10 +29,6 @@ These are specified as P0 in [FEATURES.md](FEATURES.md) but not built.
 | Gap | Why it matters | Notes |
 |---|---|---|
 | **Email verification & password reset** | `email_verified` exists; nothing sets it. Lockout is permanent | Needs an email provider |
-| **Collections** | P0 organization primitive; no table or endpoints | |
-| **Favorites / pinning** | `documents.starred` column exists; no endpoint toggles it | |
-| **Trash retention** | 30-day window specified but nothing purges | Scheduled job |
-| **Search filters** | Cannot scope by type, tag, folder, or date | Retrieval currently filters only by owner |
 
 ## P1
 
@@ -56,9 +53,9 @@ Ordered by risk, not effort.
 8. **No connection-pool tuning.** Will bite before CPU does when API replicas scale.
 9. **Free-tier AI has privacy implications.** Google may train on free-tier data — blocking for real user documents. See [AI.md](AI.md).
 10. **OCR runs inline, on Render's shared free vCPU.** No worker is deployed, so a scanned PDF's OCR pass competes with request handling in the same process and blocks that one upload request for its duration. Cloudflare R2 (object storage) and Groq (chat) are the only external services in the stack that could still function if this ran in a real worker — restoring `INGEST_MODE=queue` would move OCR off the request path.
+11. **Trash retention purge is opportunistic, not scheduled.** No free host offers a cron trigger the API can use, so `purge_expired_trash` runs once on API startup (`app/main.py`) — which, on Render free, is every time the instance wakes from an idle sleep. A vault that stays busy enough to never cold-start could accumulate expired trash indefinitely between deploys. A real fix would be a Cloudflare Worker Cron Trigger (free tier includes them) calling an internal purge endpoint — not built, since it adds a second free service to operate for a low-stakes feature.
 
 ## Suggested order
 
 1. Email verification + password reset — prerequisite for anyone but you
-2. Search filters and collections — the organization layer users will expect
-3. CI actually gating deploys — stop shipping runtime bugs (blocked on GitHub Actions budget, see engineering debt)
+2. CI actually gating deploys — stop shipping runtime bugs (blocked on GitHub Actions budget, see engineering debt)

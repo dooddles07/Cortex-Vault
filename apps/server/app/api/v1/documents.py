@@ -74,6 +74,16 @@ async def restore_document(document_id: uuid.UUID, user: CurrentUser, db: DbSess
     return await document_service.restore_document(db, user.id, document_id)
 
 
+@router.post("/{document_id}/star", response_model=DocumentRead)
+async def star_document(document_id: uuid.UUID, user: CurrentUser, db: DbSession) -> Document:
+    return await document_service.set_starred(db, user.id, document_id, True)
+
+
+@router.delete("/{document_id}/star", response_model=DocumentRead)
+async def unstar_document(document_id: uuid.UUID, user: CurrentUser, db: DbSession) -> Document:
+    return await document_service.set_starred(db, user.id, document_id, False)
+
+
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(document_id: uuid.UUID, user: CurrentUser, db: DbSession) -> None:
     await document_service.delete_document(db, user.id, document_id)

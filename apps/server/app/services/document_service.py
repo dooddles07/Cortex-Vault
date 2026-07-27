@@ -1,5 +1,6 @@
+import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models import Document
 from app.schemas.document import DocumentCreate, DocumentUpdate
+
+logger = logging.getLogger(__name__)
+
+TRASH_RETENTION_DAYS = 30
 
 
 async def list_documents(
@@ -98,6 +103,16 @@ async def restore_document(
     return doc
 
 
+async def set_starred(
+    db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID, starred: bool
+) -> Document:
+    doc = await get_document(db, user_id, document_id)
+    doc.starred = starred
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
 async def delete_document(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID) -> None:
     from app.storage.r2 import delete_original
 
@@ -106,3 +121,27 @@ async def delete_document(db: AsyncSession, user_id: uuid.UUID, document_id: uui
     await db.delete(doc)
     await db.commit()
     await delete_original(file_path)
+
+
+async def purge_expired_trash(db: AsyncSession) -> int:
+    """Hard-delete documents trashed longer than the retention window, across
+    all users. There is no scheduler on the free tier, so this runs
+    opportunistically on API startup — which, on Render free, is every time
+    the instance wakes from an idle sleep. Not truly time-based, but it needs
+    no new infrastructure and no cost. Purges one at a time through
+    delete_document so R2 originals are cleaned up too."""
+    from app.storage.r2 import delete_original
+
+    cutoff = datetime.now(UTC) - timedelta(days=TRASH_RETENTION_DAYS)
+    expired = await db.scalars(
+        select(Document).where(Document.deleted_at.isnot(None), Document.deleted_at < cutoff)
+    )
+    rows = list(expired)
+    for doc in rows:
+        file_path = doc.file_path
+        await db.delete(doc)
+        await db.commit()
+        await delete_original(file_path)
+    if rows:
+        logger.info("purged %d expired trashed document(s)", len(rows))
+    return len(rows)
