@@ -36,11 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+    let live = true;
     api
       .me()
-      .then(setUser)
-      .catch(() => setToken(null))
-      .finally(() => setLoading(false));
+      .then((u) => live && setUser(u))
+      .catch(() => live && setToken(null))
+      .finally(() => live && setLoading(false));
+    return () => {
+      live = false;
+    };
   }, []);
 
   const complete = useCallback(async (token: string) => {
