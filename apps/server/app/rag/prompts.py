@@ -15,6 +15,11 @@ SUMMARIZE_SYSTEM_PROMPT = """Summarize this conversation concisely, preserving s
 decisions, and named entities a later answer might depend on. Output only the summary, no \
 preamble."""
 
+RERANK_SYSTEM_PROMPT = """Given a question and numbered candidate passages, return a \
+comma-separated list of the passage numbers ordered from most to least relevant to answering \
+the question. Omit passages that are clearly irrelevant. Reply with only the numbers, \
+comma-separated — no words, no preamble."""
+
 
 def build_messages(
     question: str,
@@ -51,4 +56,12 @@ def build_summarize_messages(
     return [
         {"role": "system", "content": SUMMARIZE_SYSTEM_PROMPT},
         {"role": "user", "content": f"{prefix}Conversation so far:\n{transcript}"},
+    ]
+
+
+def build_rerank_messages(question: str, contexts: list[str]) -> list[dict[str, str]]:
+    numbered = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts))
+    return [
+        {"role": "system", "content": RERANK_SYSTEM_PROMPT},
+        {"role": "user", "content": f"Question: {question}\n\nCandidates:\n{numbered}"},
     ]

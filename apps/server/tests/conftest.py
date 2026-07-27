@@ -9,12 +9,33 @@ os.environ.setdefault("DATABASE_URL_SYNC", f"postgresql+psycopg2://{PG}/{TEST_DB
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 
-import uuid
-from collections.abc import Iterator
+# Forced blank, not just defaulted: a real credential in a developer's local
+# .env must never leak into a test run. AI providers are already safe from
+# this — fake_providers replaces the factory functions entirely — but
+# Sentry, Resend, and R2 are called directly with no swappable factory, so a
+# real key in .env means a real Sentry event / real email / real R2 write
+# during `pytest`. This is exactly how a real SENTRY_DSN in .env ended up
+# sending real test exceptions to production Sentry the first time this
+# integration shipped. os.environ.setdefault only applies because these
+# names aren't already in the process environment (they live in .env, which
+# pydantic-settings loads with lower precedence than real OS env vars) — so
+# this reliably wins regardless of what .env contains.
+for _key in (
+    "SENTRY_DSN",
+    "RESEND_API_KEY",
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET_NAME",
+):
+    os.environ.setdefault(_key, "")
 
-import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+import uuid  # noqa: E402
+from collections.abc import Iterator  # noqa: E402
+
+import pytest  # noqa: E402
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
+from sqlalchemy.pool import NullPool  # noqa: E402
 
 # Swap in a NullPool engine BEFORE app.main is imported, because chat_service,
 # workers.tasks.ingest and db.session all bind `SessionLocal` at module import
@@ -28,7 +49,7 @@ from sqlalchemy.pool import NullPool
 # draws it next. NullPool opens a fresh connection per checkout and closes it on
 # release, so a connection can never outlive the loop it was made on.
 import app.db.session as _db_session  # noqa: E402
-from app.core.config import settings
+from app.core.config import settings  # noqa: E402
 
 _db_session.engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
 _db_session.SessionLocal = async_sessionmaker(_db_session.engine, expire_on_commit=False)

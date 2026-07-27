@@ -60,7 +60,8 @@ The smoke layer is the highest value per line: `test_app_imports_without_optiona
 - **A separate database.** Everything runs against `cortexvault_test` (override with `TEST_DB_NAME`), created automatically on first run. Your dev vault is never truncated.
 - **Real migrations.** The suite runs `alembic upgrade head`, so the schema under test is the one that ships — including `CREATE EXTENSION vector` and the HNSW index.
 - **No AI calls.** `fake_providers` is autouse and patches both factories. Embeddings are derived deterministically from a SHA-256 of the text, so identical input always retrieves identically, offline and free. A test that hits Gemini is a bug.
-- **No worker required.** The `inline_worker` fixture patches `enqueue_ingest` to run the arq task synchronously, so the full ingest path is exercised without Redis or a running worker.
+- **No worker required.** The `inline_worker` fixture patches `dispatch_ingest` to run the arq task synchronously, so the full ingest path is exercised without Redis or a running worker.
+- **No Sentry, Resend, or R2 calls, even with real credentials sitting in a local `.env`.** Unlike the AI providers, these three are called directly with no swappable factory — `conftest.py` forces `SENTRY_DSN`, `RESEND_API_KEY`, and all four `R2_*` vars blank before any app module imports, overriding whatever `.env` contains (`os.environ.setdefault` wins because pydantic-settings gives real OS env vars precedence over `.env` file values). This is not hypothetical: a real `SENTRY_DSN` in a local `.env` once caused a `pytest` run to send real test exceptions to production Sentry — 4 real events, confirmed via the `200` responses in the log — before this guard existed.
 - **Clean slate per test.** All tables are truncated between tests.
 
 Each integration module is anchored to a regression that reached production — the docstrings name which one.

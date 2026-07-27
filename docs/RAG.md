@@ -44,7 +44,8 @@ flowchart LR
     K -->|plainto_tsquery + ts_rank over GIN| KR[Top 20 ranked]
     VR --> F[Reciprocal rank fusion]
     KR --> F
-    F --> N[Top 6 to the LLM]
+    F --> R[LLM re-rank, chat only]
+    R --> N[Top 6 to the LLM]
 ```
 
 **Why both arms.** Vector search finds semantic matches — a query about "how are vectors kept" retrieves a chunk saying "embeddings are stored in Postgres" with no shared keywords. Keyword search finds exact tokens vector search dilutes — error codes, function names, proper nouns. Each fails where the other succeeds.
@@ -60,6 +61,8 @@ A chunk ranked highly by either arm scores well; a chunk ranked well by both sco
 **Consequence for consumers:** the `score` in a `/search` response is an RRF value, not a similarity. It is only meaningful for ordering within one response — do not threshold on it or compare across queries.
 
 Both arms filter on `user_id` and exclude trashed documents, so isolation is enforced at the query level rather than after retrieval. Both arms also accept an optional `SearchFilters` (type/folder/tag/date), applied as further `WHERE` clauses on `documents` — a filter can only narrow the candidate set further, never widen past owner+trash scoping. Wired to `GET /search`'s query params; chat retrieval doesn't take filters today. See [API.md](API.md).
+
+**Re-ranking (chat only).** `app/rag/rerank.py` asks the chat LLM to re-score the RRF-fused candidates before truncating to `RERANK_TOP_N`, instead of just truncating the fused order (the previous behavior — `RERANK_TOP_N`'s name overstated it). No new provider or dependency: the same `CHAT_PROVIDER` call already used for the answer, given a numbered candidate list and asked to return relevance order. Parsing that response tolerates minor deviations (trailing punctuation) but falls back to the original RRF order — today's prior behavior — on a provider failure or a response that doesn't parse as a clean number list. `GET /search` does not re-rank; this is chat-context-selection only.
 
 ## Generation
 
@@ -87,5 +90,5 @@ The endpoint emits `citations` before any `token` event, so a UI renders sources
 
 ## Not implemented
 
-- **No re-ranking model.** `RERANK_TOP_N` truncates the fused list; it does not re-score with a cross-encoder. The name is aspirational. A real fix needs either a hosted rerank API (Cohere, Jina) or a local cross-encoder model too heavy for the free-tier shared vCPU — deferred pending that choice, not built as a placeholder.
+- **Re-ranking is LLM-based, not a dedicated cross-encoder.** A real cross-encoder (hosted rerank API like Cohere/Jina, or a local model) would likely out-perform asking a general-purpose chat model to order a list — not built, since it needs either a new external-service decision or a dependency too heavy for the free-tier shared vCPU. The LLM-based version costs nothing new and is a real improvement over blind truncation, but isn't the ceiling.
 - **Chat retrieval doesn't take metadata filters.** `GET /search` does (type/folder/tag/date); the retrieval used inside `/chat` does not expose the same filters yet.

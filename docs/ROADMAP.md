@@ -22,7 +22,7 @@ Backend deployed and verified end-to-end in production.
 | Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
 | Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
 | Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset (Resend) — now enforced on chat/uploads/bookmarks (`403` if unverified), audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny), MFA (TOTP + 10 backup codes, `pyotp`) |
-| RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff) |
+| RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff), LLM-based re-ranking (chat only — reuses `CHAT_PROVIDER`, no new dependency) |
 | Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`), error tracking via Sentry (optional, `SENTRY_DSN`) |
 
 ## P0 — remaining MVP gaps
@@ -47,7 +47,7 @@ Ordered by risk, not effort.
 3. **No staging environment.**
 4. ~~Token revocation~~ **Done.** Sessions table keyed by JWT `jti`; sign-out and password reset both revoke. See [SECURITY.md](SECURITY.md).
 5. **Embedding dimension is load-bearing.** 768 is forced by pgvector's 2000-dim HNSW cap. Changing provider means a migration, index rebuild, and full re-embed — see [RAG.md](RAG.md).
-6. **No re-ranking model.** `RERANK_TOP_N` truncates; it does not re-score. The name overstates it. A real fix needs a hosted rerank API (Cohere, Jina — a new external-service decision) or a local cross-encoder (too heavy for the free-tier shared vCPU) — deferred pending that choice.
+6. ~~No re-ranking model~~ **Done, LLM-based.** `app/rag/rerank.py` asks `CHAT_PROVIDER` to re-score the fused candidates before truncating to `RERANK_TOP_N`, instead of just truncating the RRF order — zero new cost or dependency. A dedicated cross-encoder (hosted rerank API or local model) would likely do better; not built, since that still needs an external-service decision or a dependency too heavy for the free-tier shared vCPU. See [RAG.md](RAG.md).
 7. ~~No embedding cache~~ **Done.** `content_hash` now short-circuits a re-ingest when content is unchanged. See [RAG.md](RAG.md).
 8. ~~No connection-pool tuning~~ **Done, partially.** Pool size/overflow are now explicit config (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`, default 5/10 — unchanged from SQLAlchemy's own defaults, just no longer invisible). Still revisit before API replicas scale — the ceiling itself hasn't moved.
 9. **Free-tier AI has privacy implications.** Google may train on free-tier data — blocking for real user documents. See [AI.md](AI.md).
@@ -56,7 +56,9 @@ Ordered by risk, not effort.
 12. ~~`email_verified` isn't enforced anywhere~~ **Done.** `require_verified_email` gates `POST /chat`, `/uploads`, `/bookmarks` — `403` until the account is verified. `POST /documents` is deliberately left ungated. See [SECURITY.md](SECURITY.md).
 13. **Without `RESEND_API_KEY` set, Resend's free tier only delivers to the account owner's own verified address** (sandbox mode) — fine for solo use, blocking before other real users can actually receive verification/reset emails. See [SECURITY.md](SECURITY.md).
 14. **MFA has no WebAuthn/passkey alternative**, and no UI to regenerate backup codes without a full disable/re-enroll. Low priority — TOTP + backup codes covers the realistic threat model for a solo/small deployment.
+15. **A dedicated re-ranker (cross-encoder) would likely beat the LLM-based one**, but needs a provider decision (hosted API vs. local model) first. See [RAG.md](RAG.md).
+16. **Tests didn't isolate Sentry/Resend/R2 from a real local `.env` until this was caught in practice** — a real `SENTRY_DSN` sent real test exceptions to production Sentry (4 confirmed events) before `conftest.py` forced these blank for test runs. Fixed, but worth naming as the kind of gap that's easy to reintroduce if a new external-service integration follows the same call-it-directly pattern instead of the swappable-factory pattern the AI providers use. See [TESTING.md](TESTING.md).
 
 ## Suggested order
 
-1. Re-ranking model — needs a provider decision (hosted API vs. local cross-encoder) before it can be built
+Nothing outstanding needs a decision right now. The only unbuilt items (dedicated re-ranker, WebAuthn/passkeys, a real cron for opportunistic purges) each need either a provider choice or a second paid-adjacent service, and none are urgent for a solo deployment.

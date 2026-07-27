@@ -2,6 +2,15 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-27 (later still, part 3)
+
+### Added
+- **Re-ranking, LLM-based** — `app/rag/rerank.py` asks the already-wired chat LLM to re-score the RRF-fused candidates before truncating to `RERANK_TOP_N`, replacing blind truncation. Zero new cost or dependency. Falls back to the original RRF order on a provider failure or an unparseable response.
+
+### Fixed
+- **Tests were leaking real calls to Sentry, Resend, and R2 when a developer's local `.env` had real credentials.** Unlike the AI providers (swappable factories, patched by `fake_providers`), these three are called directly — a real `SENTRY_DSN` in `.env` caused a `pytest` run to send 4 real test-exception events to production Sentry (confirmed via `200` responses in the log) before this was caught. `conftest.py` now forces `SENTRY_DSN`, `RESEND_API_KEY`, and all four `R2_*` vars blank before any app module imports, unconditionally overriding `.env`.
+- `TESTING.md` still said `inline_worker` patches `enqueue_ingest` — stale since the rename to `dispatch_ingest` earlier this session, never caught until now.
+
 ## 2026-07-27 (later still, part 2)
 
 ### Added

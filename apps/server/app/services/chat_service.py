@@ -13,6 +13,7 @@ from app.db.session import SessionLocal
 from app.models import Conversation, Message, MessageCitation
 from app.rag.prompts import build_messages, build_rewrite_messages, build_summarize_messages
 from app.rag.providers import get_chat_provider
+from app.rag.rerank import rerank
 from app.rag.retrieval import hybrid_search
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,8 @@ async def stream_answer(
             history = await _recent_history(db, convo.id, exclude_id=user_message.id)
             search_query = await _rewrite_query(question, history)
 
-            hits = (await hybrid_search(db, user_id, search_query))[: settings.RERANK_TOP_N]
+            candidates = await hybrid_search(db, user_id, search_query)
+            hits = await rerank(search_query, candidates, settings.RERANK_TOP_N)
             yield _sse(
                 "citations",
                 [
