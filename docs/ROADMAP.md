@@ -8,7 +8,7 @@ Backend deployed and verified end-to-end in production.
 
 | Area | Detail |
 |---|---|
-| Auth | Sign-up, sign-in, JWT bearer, bcrypt hashing |
+| Auth | Sign-up, sign-in, JWT bearer, bcrypt hashing, resend-verification (`POST /auth/resend-verification`) |
 | Documents | CRUD, soft delete, restore, folder assignment |
 | Organization | Folders (nested), tags (idempotent create, attach/detach) |
 | Ingestion | Async via Redis + arq; paragraph-aware chunking; batched embeddings; idempotent re-ingest |
@@ -21,7 +21,7 @@ Backend deployed and verified end-to-end in production.
 | Object storage | Cloudflare R2, optional — set `R2_*` or originals are discarded after text extraction, same as before |
 | Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
 | Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
-| Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset (Resend) — now enforced on chat/uploads/bookmarks (`403` if unverified), audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny), MFA (TOTP + 10 backup codes, `pyotp`) |
+| Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset + resend (Resend) — tracked but not enforced on chat/uploads/bookmarks, see item 12, audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny), MFA (TOTP + 10 backup codes, `pyotp`) |
 | RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff), LLM-based re-ranking (chat only — reuses `CHAT_PROVIDER`, no new dependency) |
 | Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`), error tracking via Sentry (optional, `SENTRY_DSN`) |
 

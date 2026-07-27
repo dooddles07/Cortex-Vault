@@ -26,6 +26,7 @@ Per minute, fixed window. Auth is keyed on IP; the rest on user id.
 | Route | Limit |
 |---|---|
 | `/auth/sign-in`, `/auth/sign-up`, `/auth/forgot-password`, `/auth/reset-password` | 10 |
+| `/auth/resend-verification` (keyed on user, not IP) | 10 |
 | `/chat` | 20 |
 | `/uploads` | 20 |
 | `/search` | 60 |
@@ -48,6 +49,7 @@ All are configurable via `RATE_LIMIT_*` environment variables. See [SECURITY.md]
 | `POST` | `/auth/mfa/challenge` | `mfa_token`, `code` (TOTP or a backup code) | `200` + `access_token` — this is what actually completes sign-in for an MFA account |
 | `POST` | `/auth/sign-out` | — (bearer token identifies the session) | `204`; revokes the current session only |
 | `POST` | `/auth/verify-email` | `token` | `204` |
+| `POST` | `/auth/resend-verification` | — (bearer) | `200` + message. No-op with a distinct message if already verified |
 | `POST` | `/auth/forgot-password` | `email` | `200` + generic message, always, regardless of whether the email is registered |
 | `POST` | `/auth/reset-password` | `token`, `new_password` (8–128) | `204`; revokes every session for that user |
 | `POST` | `/auth/mfa/enable` | — (bearer) | `200` + `secret`, `otpauth_uri`, `backup_codes` (shown once). Does not yet turn MFA on |
@@ -99,7 +101,7 @@ List responses are `{items, total, limit, offset}`.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` (null when nothing is indexable). `403` if the account's email isn't verified |
+| `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` (null when nothing is indexable) |
 | `GET` | `/uploads/{document_id}/status` | `ingest_status`, `job_status`, `error` |
 
 Text is extracted at upload time. Supported: **PDF** (via `pypdf`, OCR fallback for scans), **`.docx`/`.pptx`/`.xlsx`** (`python-docx`/`python-pptx`/`openpyxl`), **images** (`.png`/`.jpg`/`.jpeg`/`.webp`/`.tiff`/`.bmp`, via OCR), plain text, Markdown, CSV, JSON, XML, HTML. Detection uses the MIME type, falling back to the file extension.
@@ -124,7 +126,7 @@ Anything else (archives, unrecognized binaries) is stored but never indexed. Upl
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/bookmarks` | `url`, `folder_id?`. Fetches the page, extracts readable text (`trafilatura`), returns `202` + `document_id`, `job_id`. `403` if the account's email isn't verified |
+| `POST` | `/bookmarks` | `url`, `folder_id?`. Fetches the page, extracts readable text (`trafilatura`), returns `202` + `document_id`, `job_id` |
 
 Guarded against SSRF: only `http`/`https`, rejects private/loopback/link-local/cloud-metadata addresses, re-validates every redirect hop. See [SECURITY.md](SECURITY.md).
 
@@ -165,7 +167,7 @@ Trashed documents are excluded.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/chat` | `message`, `conversation_id?`. Returns `text/event-stream`. `403` if the account's email isn't verified |
+| `POST` | `/chat` | `message`, `conversation_id?`. Returns `text/event-stream` |
 | `GET` | `/conversations` | List, newest first |
 | `GET` | `/conversations/{id}` | Conversation + full message history |
 | `DELETE` | `/conversations/{id}` | `204`; cascades to messages and citations |

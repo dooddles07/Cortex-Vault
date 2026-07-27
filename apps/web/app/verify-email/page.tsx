@@ -43,7 +43,7 @@ function VerifyEmailBody() {
           className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4 text-body text-fg"
         >
           <Icon of={MailCheck} className="mt-0.5 text-success" />
-          Your email is verified. Chat and uploads are unlocked.
+          Your email is verified.
         </p>
         <Link
           href="/dashboard"
