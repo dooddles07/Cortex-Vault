@@ -127,6 +127,15 @@ async def find_user_for_password_reset(db: AsyncSession, email: str) -> User | N
     return await db.scalar(select(User).where(User.email == email))
 
 
+async def resend_verification(db: AsyncSession, user: User) -> str | None:
+    """Mint a fresh verification token for the current user, or None if already verified."""
+    if user.email_verified:
+        return None
+    return await create_verification_token(
+        db, user, PURPOSE_VERIFY_EMAIL, timedelta(hours=settings.EMAIL_VERIFICATION_TTL_HOURS)
+    )
+
+
 async def verify_email(db: AsyncSession, token: str) -> None:
     row = await _consume_token(db, token, PURPOSE_VERIFY_EMAIL)
     user = await db.get(User, row.user_id)

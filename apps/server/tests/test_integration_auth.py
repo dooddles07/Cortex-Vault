@@ -119,6 +119,40 @@ def test_verify_email_rejects_unknown_token(client):
     assert response.status_code == 401
 
 
+async def test_resend_verification_issues_a_usable_token(client, db_session):
+    email = "resend-verify@cortexvault-test.com"
+    access_token = _sign_up(client, email=email)
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = client.post("/api/v1/auth/resend-verification", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["message"] == "Verification email sent."
+
+    # The new token is a fresh row — mint a known value onto it, same pattern
+    # as test_verify_email_end_to_end, and confirm it actually verifies.
+    token = generate_token()
+    row = await _latest_token(db_session, PURPOSE_VERIFY_EMAIL)
+    row.token_hash = hash_token(token)
+    await db_session.commit()
+
+    verify_response = client.post("/api/v1/auth/verify-email", json={"token": token})
+    assert verify_response.status_code == 204
+
+
+async def test_resend_verification_is_a_no_op_once_verified(client, db_session):
+    email = "resend-already-verified@cortexvault-test.com"
+    access_token = _sign_up(client, email=email)
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    user = await db_session.scalar(select(User).where(User.email == email))
+    user.email_verified = True
+    await db_session.commit()
+
+    response = client.post("/api/v1/auth/resend-verification", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["message"] == "This email is already verified."
+
+
 def test_forgot_password_gives_the_same_response_either_way(client):
     _sign_up(client, email="has-account@cortexvault-test.com")
 

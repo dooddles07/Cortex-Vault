@@ -3,7 +3,7 @@ from datetime import timedelta
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
 from app.api.deps import CurrentSessionId, CurrentUser, DbSession
-from app.api.limits import AuthLimit
+from app.api.limits import AuthLimit, ResendVerificationLimit
 from app.core.config import settings
 from app.core.email import send_email
 from app.core.rate_limit import client_ip
@@ -27,6 +27,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Generic wording on purpose — never confirms whether an email is registered.
 _RESET_SENT_MESSAGE = "If that email is registered, a password reset link has been sent."
+_VERIFICATION_SENT_MESSAGE = "Verification email sent."
+_ALREADY_VERIFIED_MESSAGE = "This email is already verified."
 
 
 @router.post(
@@ -77,6 +79,30 @@ async def sign_out(db: DbSession, session_id: CurrentSessionId) -> None:
 @router.post("/verify-email", status_code=status.HTTP_204_NO_CONTENT)
 async def verify_email(payload: VerifyEmailRequest, db: DbSession) -> None:
     await auth_service.verify_email(db, payload.token)
+
+
+@router.post(
+    "/resend-verification",
+    response_model=MessageResponse,
+    dependencies=[ResendVerificationLimit],
+)
+async def resend_verification(
+    db: DbSession, user: CurrentUser, background: BackgroundTasks
+) -> MessageResponse:
+    verify_token = await auth_service.resend_verification(db, user)
+    if not verify_token:
+        return MessageResponse(message=_ALREADY_VERIFIED_MESSAGE)
+
+    link = f"{settings.WEB_BASE_URL}/verify-email?token={verify_token}"
+    background.add_task(
+        send_email,
+        user.email,
+        "Verify your CortexVault email",
+        f"<p>Confirm your email to finish setting up CortexVault.</p>"
+        f'<p><a href="{link}">Verify email</a></p>'
+        f"<p>This link expires in {settings.EMAIL_VERIFICATION_TTL_HOURS} hours.</p>",
+    )
+    return MessageResponse(message=_VERIFICATION_SENT_MESSAGE)
 
 
 @router.post(

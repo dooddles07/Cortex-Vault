@@ -23,10 +23,24 @@ const SECTIONS = [
 export default function SettingsPage() {
   const user = useRequireAuth();
   const { signOut } = useAuth();
+  const toast = useToast();
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  async function onResendVerification() {
+    setResending(true);
+    try {
+      const { message } = await api.resendVerification();
+      toast(message);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not send verification email.", "danger");
+    } finally {
+      setResending(false);
+    }
+  }
 
   useEffect(() => {
     if (user) setName(user.name ?? "");
@@ -77,8 +91,22 @@ export default function SettingsPage() {
                 label="Email"
                 value={user.email}
                 readOnly
-                helper={user.email_verified ? "Verified." : "Not verified."}
+                helper={user.email_verified ? "Verified." : undefined}
               />
+              {!user.email_verified && (
+                <p className="flex items-center gap-3 text-body-sm text-fg-muted">
+                  Not verified.
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    loading={resending}
+                    onClick={onResendVerification}
+                  >
+                    Resend verification email
+                  </Button>
+                </p>
+              )}
               <Field
                 label="Name"
                 value={name}

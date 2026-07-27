@@ -46,7 +46,17 @@ async def limit_search(user: CurrentUser) -> None:
     )
 
 
+async def limit_resend_verification(user: CurrentUser) -> None:
+    """Same brute-force ceiling as sign-in/sign-up, but keyed on the user, not IP."""
+    await enforce(
+        "resend_verification",
+        str(user.id),
+        Limit(settings.RATE_LIMIT_AUTH, 60, "resend-verification"),
+    )
+
+
 AuthLimit = Depends(limit_auth)
 ChatLimit = Depends(limit_chat)
 UploadLimit = Depends(limit_upload)
 SearchLimit = Depends(limit_search)
+ResendVerificationLimit = Depends(limit_resend_verification)
