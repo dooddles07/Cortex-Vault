@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
-from app.api.deps import CurrentUser, DbSession, RequireVerifiedEmail
+from app.api.deps import CurrentUser, DbSession
 from app.api.limits import UploadLimit
 from app.rag.bookmarks import BookmarkFetchError, fetch_readable
 from app.schemas.bookmark import BookmarkCreate
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
     "",
     response_model=UploadAccepted,
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[UploadLimit, RequireVerifiedEmail],
+    dependencies=[UploadLimit],
 )
 async def save_bookmark(
     payload: BookmarkCreate,

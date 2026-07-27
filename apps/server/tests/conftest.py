@@ -9,6 +9,17 @@ os.environ.setdefault("DATABASE_URL_SYNC", f"postgresql+psycopg2://{PG}/{TEST_DB
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 
+# Production-tuned rate limits are far too low for a full integration run,
+# which signs up/chats/uploads across many tests sharing one bucket (every
+# TestClient request reports the same fake client IP). test_rate_limit.py
+# exercises the real limiter directly with its own explicit Limit(...)
+# values, so raising these settings-driven ceilings doesn't weaken that
+# coverage — it only stops the rest of the suite from tripping over it.
+os.environ.setdefault("RATE_LIMIT_AUTH", "100000")
+os.environ.setdefault("RATE_LIMIT_CHAT", "100000")
+os.environ.setdefault("RATE_LIMIT_UPLOAD", "100000")
+os.environ.setdefault("RATE_LIMIT_SEARCH", "100000")
+
 # Forced blank, not just defaulted: a real credential in a developer's local
 # .env must never leak into a test run. AI providers are already safe from
 # this — fake_providers replaces the factory functions entirely — but

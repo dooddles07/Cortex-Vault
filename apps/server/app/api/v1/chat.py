@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import CurrentUser, DbSession, RequireVerifiedEmail
+from app.api.deps import CurrentUser, DbSession
 from app.api.limits import ChatLimit
 from app.schemas.chat import ChatRequest, ConversationDetail, ConversationRead, MessageRead
 from app.services import chat_service
@@ -11,7 +11,7 @@ from app.services import chat_service
 router = APIRouter(tags=["chat"])
 
 
-@router.post("/chat", dependencies=[ChatLimit, RequireVerifiedEmail])
+@router.post("/chat", dependencies=[ChatLimit])
 async def chat(payload: ChatRequest, user: CurrentUser) -> StreamingResponse:
     # No DbSession here: the generator outlives this handler and opens its own.
     stream = chat_service.stream_answer(user.id, payload.message, payload.conversation_id)

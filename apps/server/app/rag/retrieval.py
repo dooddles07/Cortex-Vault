@@ -90,7 +90,12 @@ async def _vector_search(
     stmt = (
         select(Chunk.id, Chunk.document_id, Document.title, Chunk.content, distance.label("d"))
         .join(Document, Document.id == Chunk.document_id)
-        .where(Chunk.user_id == user_id, Document.deleted_at.is_(None), Chunk.embedding.isnot(None))
+        .where(
+            Chunk.user_id == user_id,
+            Document.deleted_at.is_(None),
+            Chunk.embedding.isnot(None),
+            distance <= 1.0 - settings.RETRIEVAL_MIN_SCORE,
+        )
         .order_by(distance)
         .limit(top_k)
     )

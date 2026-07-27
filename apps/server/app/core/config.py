@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 30
     RETRIEVAL_TOP_K: int = 20
     RERANK_TOP_N: int = 6
+    # Below this cosine similarity, a vector hit is noise, not a real match —
+    # without a floor, a query with no genuine match (e.g. "hi") still forces
+    # back the closest chunks in the vault and cites them as if relevant.
+    RETRIEVAL_MIN_SCORE: float = 0.5
 
     DB_POOL_SIZE: int = 5
     DB_POOL_MAX_OVERFLOW: int = 10
