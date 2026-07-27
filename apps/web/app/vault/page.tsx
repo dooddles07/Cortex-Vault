@@ -66,6 +66,17 @@ export default function VaultPage() {
     if (user) load();
   }, [user, load]);
 
+  // Ingest runs on a background worker — poll while anything is still
+  // in flight so status/progress update without a manual reload.
+  const inFlight = documents?.some(
+    (d) => d.ingest_status === "processing" || d.ingest_status === "pending",
+  );
+  useEffect(() => {
+    if (!inFlight) return;
+    const id = setInterval(load, 3000);
+    return () => clearInterval(id);
+  }, [inFlight, load]);
+
   const rows = useMemo(() => {
     if (!documents) return null;
     const sorted = [...documents].sort((a, b) => {
