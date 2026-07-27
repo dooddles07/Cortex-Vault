@@ -45,7 +45,11 @@ export function CitationPane({
     return () => {
       live = false;
     };
-  }, [source]);
+    // Keyed on the identifying fields, not the `source` object itself - two
+    // citations sharing a documentId (different chunk) must still re-fetch,
+    // which a reused or structurally-equal object reference could otherwise skip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source?.documentId, source?.chunkId]);
 
   React.useEffect(() => {
     if (!source) return;
