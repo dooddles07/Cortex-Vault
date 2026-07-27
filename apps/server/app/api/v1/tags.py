@@ -27,7 +27,7 @@ async def attach_tag(
     from app.services import document_service
 
     await document_service.get_document(db, user.id, document_id)
-    await tag_service.attach_tag(db, document_id, tag_id)
+    await tag_service.attach_tag(db, user.id, document_id, tag_id)
 
 
 @router.delete("/documents/{document_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -37,4 +37,4 @@ async def detach_tag(
     from app.services import document_service
 
     await document_service.get_document(db, user.id, document_id)
-    await tag_service.detach_tag(db, document_id, tag_id)
+    await tag_service.detach_tag(db, user.id, document_id, tag_id)
