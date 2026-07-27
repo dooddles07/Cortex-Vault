@@ -38,6 +38,12 @@ _MIN_TEXT_CHARS = 32
 # this are reported as needing OCR rather than run through it here.
 _MAX_OCR_PAGES = 20
 
+# An unbounded spreadsheet can produce a content string large enough to chunk
+# into thousands of pieces, burning a large fraction of the daily embedding
+# quota (free-tier) on a single upload. Truncate rather than fail outright —
+# a partial index is still useful.
+_MAX_XLSX_ROWS = 5000
+
 
 class Extraction:
     """Result of parsing an upload."""
@@ -100,14 +106,21 @@ def _extract_xlsx(raw: bytes) -> str:
 
     wb = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
     sheets = []
+    total_rows = 0
     for ws in wb.worksheets:
         rows = []
         for row in ws.iter_rows(values_only=True):
+            if total_rows >= _MAX_XLSX_ROWS:
+                break
             cells = [str(c) for c in row if c is not None]
             if cells:
                 rows.append(" | ".join(cells))
+                total_rows += 1
         if rows:
             sheets.append(f"# {ws.title}\n" + "\n".join(rows))
+        if total_rows >= _MAX_XLSX_ROWS:
+            logger.warning("XLSX truncated at %d rows", _MAX_XLSX_ROWS)
+            break
     return "\n\n".join(sheets).strip()
 
 
