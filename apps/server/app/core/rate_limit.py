@@ -81,12 +81,17 @@ async def enforce(bucket: str, identity: str, limit: Limit) -> None:
     key = f"rl:{bucket}:{identity}:{window}"
 
     if settings.REDIS_URL:
+        from redis.exceptions import RedisError
+
         try:
             redis = _get_redis()
             count = await redis.incr(key)
             if count == 1:
                 await redis.expire(key, limit.window_seconds)
-        except Exception:
+        except RedisError:
+            # Only a real Redis-unavailability signal fails open — a bug in
+            # this block itself (not Redis being down) must still surface as
+            # a real error rather than silently disabling rate limiting.
             logger.warning("rate limiter unavailable; allowing request", exc_info=True)
             return
     else:

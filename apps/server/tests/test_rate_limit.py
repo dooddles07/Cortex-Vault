@@ -21,11 +21,30 @@ class FakeRedis:
 
 
 class BrokenRedis:
+    """redis-py wraps real socket/network failures in its own exception
+    hierarchy before they reach a caller — this stands in for that, not a
+    bare builtin error."""
+
     async def incr(self, key: str) -> int:
-        raise ConnectionError("redis is down")
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        raise RedisConnectionError("redis is down")
 
     async def expire(self, key: str, seconds: int) -> None:
-        raise ConnectionError("redis is down")
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        raise RedisConnectionError("redis is down")
+
+
+class BuggyRedis:
+    """A defect in this module's own code, not a Redis outage — must not be
+    silently swallowed as if Redis were merely unavailable."""
+
+    async def incr(self, key: str) -> int:
+        raise TypeError("boom")
+
+    async def expire(self, key: str, seconds: int) -> None:
+        raise TypeError("boom")
 
 
 @pytest.fixture
@@ -104,6 +123,16 @@ async def test_limiter_fails_open_when_redis_is_down(monkeypatch):
 
     await enforce("bucket", "user-1", Limit(1, 60, "test"))
     await enforce("bucket", "user-1", Limit(1, 60, "test"))
+
+
+async def test_limiter_does_not_fail_open_on_a_non_redis_bug(monkeypatch):
+    """A defect in the limiter's own code must surface as a real error, not
+    silently disable rate limiting as if this were a Redis outage."""
+    monkeypatch.setattr(rl.settings, "REDIS_URL", "redis://fake")
+    monkeypatch.setattr(rl, "_get_redis", lambda: BuggyRedis())
+
+    with pytest.raises(TypeError):
+        await enforce("bucket", "user-1", Limit(1, 60, "test"))
 
 
 # --- In-memory path (no Redis configured) ----------------------------------
