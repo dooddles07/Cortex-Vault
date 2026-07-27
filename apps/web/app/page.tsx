@@ -196,7 +196,7 @@ export default function LandingPage() {
                   <Icon of={ArrowRight} size={18} />
                 </Link>
                 <Link
-                  href="/chat"
+                  href="/sign-up"
                   className="inline-flex h-12 items-center rounded-md border border-border-interactive bg-surface px-5 text-body text-fg transition-colors duration-(--duration-fast) hover:bg-bg-subtle"
                 >
                   See a cited answer
@@ -398,7 +398,7 @@ export default function LandingPage() {
               { href: "/sign-in", label: "Sign in" },
               { href: "/sign-up", label: "Create account" },
               { href: "#pricing", label: "Pricing" },
-              { href: "/chat", label: "Try a cited answer" },
+              { href: "/sign-up", label: "Try a cited answer" },
             ].map((link) => (
               <Link
                 key={link.label}
