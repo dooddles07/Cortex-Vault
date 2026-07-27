@@ -129,6 +129,18 @@ export default function VaultPage() {
     }
   }
 
+  async function onRetry(doc: Document) {
+    try {
+      await api.retryUpload(doc.id);
+      load();
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Could not retry that document.",
+        "danger",
+      );
+    }
+  }
+
   function toggleSort(key: SortKey) {
     setSort((prev) =>
       prev.key === key ? { key, desc: !prev.desc } : { key, desc: true },
@@ -273,6 +285,7 @@ export default function VaultPage() {
                           {!settled && (
                             <IngestProgress
                               status={doc.ingest_status}
+                              onRetry={() => void onRetry(doc)}
                               className="mt-2"
                             />
                           )}

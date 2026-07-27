@@ -3,6 +3,7 @@ left reporting `processing` forever when embedding failed."""
 
 import pytest
 
+from app.services import ingest_service
 from tests.helpers import requires_db
 
 pytestmark = requires_db
@@ -66,6 +67,37 @@ def test_failed_embedding_marks_document_failed(client, auth, inline_worker, mon
 
     documents = client.get("/api/v1/documents", headers=headers).json()["items"]
     assert documents[0]["ingest_status"] == "failed"
+
+
+def test_retry_reindexes_a_failed_document(client, auth, inline_worker, monkeypatch):
+    headers = auth()
+    real_embed_texts = ingest_service.embed_texts
+    attempts = {"n": 0}
+
+    async def _fail_once(texts):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("embedding provider is down")
+        return await real_embed_texts(texts)
+
+    monkeypatch.setattr("app.services.ingest_service.embed_texts", _fail_once)
+    with pytest.raises(RuntimeError):
+        doc_id = _create(client, headers)
+    doc_id = client.get("/api/v1/documents", headers=headers).json()["items"][0]["id"]
+
+    response = client.post(f"/api/v1/uploads/{doc_id}/retry", headers=headers)
+    assert response.status_code == 200, response.text
+
+    status = client.get(f"/api/v1/uploads/{doc_id}/status", headers=headers).json()
+    assert status["ingest_status"] == "indexed"
+
+
+def test_retry_rejects_a_healthy_document(client, auth, inline_worker):
+    headers = auth()
+    doc_id = _create(client, headers)
+
+    response = client.post(f"/api/v1/uploads/{doc_id}/retry", headers=headers)
+    assert response.status_code == 409
 
 
 def test_reingest_replaces_chunks_rather_than_duplicating(client, auth, inline_worker):

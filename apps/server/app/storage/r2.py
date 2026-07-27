@@ -65,6 +65,24 @@ async def store_original(
     return key
 
 
+def _get(key: str) -> bytes:
+    obj = _client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+    return obj["Body"].read()
+
+
+async def get_original(file_path: str | None) -> bytes | None:
+    """Download a stored original for re-extraction (e.g. an OCR retry).
+    Returns None if storage is unconfigured, no original was kept, or the
+    download failed — the caller must treat that as "nothing to retry"."""
+    if not file_path or not is_configured():
+        return None
+    try:
+        return await run_in_threadpool(_get, file_path)
+    except Exception:
+        logger.exception("R2 download failed for %s", file_path)
+        return None
+
+
 def _delete(key: str) -> None:
     _client().delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
 

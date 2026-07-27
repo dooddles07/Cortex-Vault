@@ -220,6 +220,12 @@ export const api = {
     );
   },
 
+  retryUpload: (id: string) =>
+    request<{ document_id: string; job_id: string | null; ingest_status: string }>(
+      `/api/v1/uploads/${id}/retry`,
+      { method: "POST" },
+    ),
+
   uploadStatus: (id: string) =>
     request<{ ingest_status: string; job_status: string | null; error: string | null }>(
       `/api/v1/uploads/${id}/status`,

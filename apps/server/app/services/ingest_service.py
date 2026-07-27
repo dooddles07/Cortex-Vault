@@ -4,11 +4,15 @@ import uuid
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.models import Chunk, Document, Job
 from app.rag.chunking import chunk_text
 from app.rag.embeddings import embed_texts
+from app.rag.extraction import extract_text
 from app.schemas.upload import IngestStatus
+from app.storage.r2 import get_original
+
+RETRYABLE_STATUSES = {"failed", "needs_ocr", "unsupported", "skipped_empty"}
 
 
 async def queue_ingest(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID) -> Job:
@@ -64,6 +68,40 @@ async def run_ingest(db: AsyncSession, document_id: uuid.UUID) -> int:
     doc.ingest_status = "indexed"
     await db.commit()
     return len(texts)
+
+
+async def prepare_retry(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID) -> Document:
+    """Prepares a document stuck in a terminal non-indexed state for another
+    ingest pass. If content was already extracted (a chunk/embed failure), it
+    is left as-is for the caller to re-queue. Otherwise re-downloads the
+    original from storage and re-extracts — the same path that can turn a
+    needs_ocr scan into searchable text once tesseract is available. Raises
+    ConflictError if there is nothing to retry from (no content and no
+    stored original)."""
+    doc = await db.scalar(
+        select(Document).where(Document.id == document_id, Document.user_id == user_id)
+    )
+    if not doc:
+        raise NotFoundError("Document")
+    if doc.ingest_status not in RETRYABLE_STATUSES:
+        raise ConflictError("This document is not in a retryable state")
+    if doc.content:
+        return doc
+
+    raw = await get_original(doc.file_path)
+    if raw is None:
+        raise ConflictError("No stored original to retry from — re-upload the file")
+
+    parsed = await extract_text(raw, "", doc.title)
+    doc.type = parsed.doc_type
+    if not parsed.content:
+        doc.ingest_status = parsed.status
+        await db.commit()
+        return doc
+
+    doc.content = parsed.content
+    await db.commit()
+    return doc
 
 
 async def get_status(

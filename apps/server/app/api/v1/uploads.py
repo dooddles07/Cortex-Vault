@@ -72,3 +72,23 @@ async def upload(
 @router.get("/{document_id}/status", response_model=IngestStatus)
 async def upload_status(document_id: uuid.UUID, user: CurrentUser, db: DbSession) -> IngestStatus:
     return await ingest_service.get_status(db, user.id, document_id)
+
+
+@router.post(
+    "/{document_id}/retry",
+    response_model=UploadAccepted,
+    dependencies=[UploadLimit, RequireVerifiedEmail],
+)
+async def retry_upload(
+    document_id: uuid.UUID, user: CurrentUser, db: DbSession, background: BackgroundTasks
+) -> UploadAccepted:
+    doc = await ingest_service.prepare_retry(db, user.id, document_id)
+
+    if not doc.content:
+        # Re-extraction ran but still produced nothing indexable (e.g. OCR
+        # still unavailable) — terminal status already set by prepare_retry.
+        return UploadAccepted(document_id=doc.id, job_id=None, ingest_status=doc.ingest_status)
+
+    job = await ingest_service.queue_ingest(db, user.id, doc.id)
+    await dispatch_ingest(background, doc.id, job.id)
+    return UploadAccepted(document_id=doc.id, job_id=job.id, ingest_status=doc.ingest_status)
