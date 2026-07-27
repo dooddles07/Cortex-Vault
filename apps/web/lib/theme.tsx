@@ -5,7 +5,7 @@ import * as React from "react";
 export type Theme = "light" | "dark" | "system";
 export type Resolved = "light" | "dark";
 
-const STORAGE_KEY = "cv-theme";
+export const STORAGE_KEY = "cv-theme";
 
 /** Dark-primary for the app shell, per docs/DESIGN.md section 1. */
 const DEFAULT: Theme = "dark";
@@ -51,7 +51,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     DEFAULT === "system" ? "light" : DEFAULT,
   );
 
-  React.useEffect(() => {
+  // Layout effect, not effect: this must land before the browser paints, or
+  // the very first frame reads the wrong `resolved` value (e.g. the wrong
+  // Sun/Moon icon) even though themeScript already set the DOM attribute
+  // correctly ahead of hydration.
+  React.useLayoutEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
     const next = stored ?? DEFAULT;
     setThemeState(next);

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { ThemeAccountSync } from "@/components/theme-account-sync";
 import { ToastProvider } from "@/components/ui/toast";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider, ThemeScript } from "@/lib/theme";
@@ -62,6 +63,7 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           <AuthProvider>
+            <ThemeAccountSync />
             <ToastProvider>{children}</ToastProvider>
           </AuthProvider>
         </ThemeProvider>
