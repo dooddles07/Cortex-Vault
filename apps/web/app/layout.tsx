@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { ColdStartNotice } from "@/components/cold-start-notice";
 import { ThemeAccountSync } from "@/components/theme-account-sync";
 import { ToastProvider } from "@/components/ui/toast";
 import { AuthProvider } from "@/lib/auth";
@@ -64,7 +65,10 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <ThemeAccountSync />
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <ColdStartNotice />
+              {children}
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

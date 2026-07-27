@@ -2,6 +2,24 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const TOKEN_KEY = "cortexvault.token";
 
+// Render's free tier sleeps after 15 min idle; the next request takes ~50s to
+// wake it. Anything slower than this fires a listener so the UI can explain
+// the wait instead of looking frozen.
+const COLD_START_MS = 4000;
+const coldStartListeners = new Set<() => void>();
+
+export function onColdStart(cb: () => void): () => void {
+  coldStartListeners.add(cb);
+  return () => coldStartListeners.delete(cb);
+}
+
+function withColdStartNotice<T>(promise: Promise<T>): Promise<T> {
+  const timer = setTimeout(() => {
+    for (const cb of coldStartListeners) cb();
+  }, COLD_START_MS);
+  return promise.finally(() => clearTimeout(timer));
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(TOKEN_KEY);
@@ -45,7 +63,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  const response = await withColdStartNotice(fetch(`${BASE}${path}`, { ...init, headers }));
 
   if (response.status === 401) {
     setToken(null);
@@ -268,15 +286,17 @@ async function chat(
   signal?: AbortSignal,
 ): Promise<void> {
   const token = getToken();
-  const response = await fetch(`${BASE}/api/v1/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ message, conversation_id: conversationId }),
-    signal,
-  });
+  const response = await withColdStartNotice(
+    fetch(`${BASE}/api/v1/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ message, conversation_id: conversationId }),
+      signal,
+    }),
+  );
 
   if (response.status === 401) {
     setToken(null);
