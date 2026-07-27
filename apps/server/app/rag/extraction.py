@@ -32,6 +32,12 @@ IMAGE_MIMES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/tiff
 # A text layer this thin means a scanned document, not an empty one.
 _MIN_TEXT_CHARS = 32
 
+# Render free tier has one shared, low-CPU process running the API inline
+# with ingestion. OCR-ing an unbounded page count can peg that process for
+# minutes and stall concurrent chat/search requests, so scanned PDFs beyond
+# this are reported as needing OCR rather than run through it here.
+_MAX_OCR_PAGES = 20
+
 
 class Extraction:
     """Result of parsing an upload."""
@@ -115,6 +121,13 @@ def _ocr_image(raw: bytes) -> str:
 def _ocr_pdf(raw: bytes) -> str:
     import pytesseract
     from pdf2image import convert_from_bytes
+    from pypdf import PdfReader
+
+    page_count = len(PdfReader(io.BytesIO(raw)).pages)
+    if page_count > _MAX_OCR_PAGES:
+        raise ValueError(
+            f"PDF has {page_count} pages, over the {_MAX_OCR_PAGES}-page OCR limit"
+        )
 
     pages = convert_from_bytes(raw)
     texts = [pytesseract.image_to_string(page) for page in pages]
