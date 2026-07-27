@@ -1,6 +1,8 @@
 """Import-time and startup checks. These catch the class of bug that only
 appears on deploy: eager client construction, bad imports, missing config."""
 
+import json
+
 
 def test_app_imports_without_optional_provider_keys():
     import app.main  # noqa: F401
@@ -58,3 +60,20 @@ async def test_startup_trash_purge_never_crashes_boot(monkeypatch):
     monkeypatch.setattr("app.services.document_service.purge_expired_trash", _boom)
 
     await app.main._purge_trash_on_startup()
+
+
+async def test_unhandled_exception_handler_returns_a_traceable_request_id():
+    """A live-demo 500 with nothing to go on but a screenshot should still be
+    traceable back to a server log line, independent of whether Sentry is
+    configured."""
+    import app.main
+    from starlette.requests import Request
+
+    request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+
+    response = await app.main.unhandled_exception_handler(request, RuntimeError("boom"))
+
+    assert response.status_code == 500
+    body = json.loads(response.body)
+    assert body["detail"] == "Internal Server Error"
+    assert len(body["request_id"]) == 32

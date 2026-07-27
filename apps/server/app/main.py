@@ -1,8 +1,11 @@
+import logging
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -11,6 +14,7 @@ from app.core.rate_limit import close_redis
 from app.workers.queue import close_pool
 
 configure_logging()
+logger = logging.getLogger(__name__)
 
 
 def _init_sentry() -> None:
@@ -63,6 +67,20 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Starlette's default handler returns a bare 500 with nothing tying it back
+    to a server log line. Sentry (if configured) already captures the exception
+    with its own event id; this id is independent and always available, so a
+    live-demo failure can still be traced from a screenshot alone."""
+    request_id = uuid.uuid4().hex
+    logger.exception("unhandled exception [request_id=%s]", request_id, exc_info=exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "request_id": request_id},
+    )
 
 
 @app.middleware("http")
