@@ -85,13 +85,15 @@
   }
 
   /* One global focus indicator, never removed. The inner bg-coloured ring
-     guarantees the indicator survives on any surface. */
+     guarantees the indicator survives on any surface. No border-radius here:
+     the shadow already conforms to whatever radius the element itself has
+     (rounded-full, rounded-md, etc.) — forcing one here overrode it, which
+     turned a circular button's focus ring into a squared-off mismatch. */
   :focus-visible {
     outline: none;
     box-shadow:
       0 0 0 2px var(--bg),
       0 0 0 4px var(--ring);
-    border-radius: var(--radius-sm);
   }
 
   /* Numeric columns and live counts must not shift the grid as values change */
