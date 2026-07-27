@@ -13,6 +13,7 @@ Notable changes to CortexVault, newest first. Grouped by day rather than semanti
 ### Fixed
 - `delete_document` now also deletes the R2 original — a hard-deleted document was leaving its file in the bucket forever, silently counting against the free storage tier
 - **CI was silently broken since the inline-ingestion refactor.** The `inline_worker` test fixture patched `enqueue_ingest`, an attribute that no longer exists — `documents.py`/`uploads.py`/`bookmarks.py` call `dispatch_ingest` now. This went undetected because CI's GitHub Actions budget was $0 at the time, so no job had ever actually run; once real runs started, every integration test using that fixture failed at setup. Fixed the fixture to patch the current name.
+- **Every integration test failed with `Future attached to a different loop`** once CI started running them. `TestClient` was constructed without entering it as a context manager, which makes it start a fresh event loop *per request*; the async connection pool then served a connection created on one loop to a request running on another, and `pool_pre_ping` raised. Fixed by entering the context manager (one loop per session, and the app's lifespan now runs). The new `db_session` fixture was given its own engine for the same reason — it runs on pytest-asyncio's loop, not the portal's.
 - API.md's Uploads section still described OCR and office formats as unsupported after they shipped the day before — missed in that pass, caught in this one
 
 ### Docs

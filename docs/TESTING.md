@@ -55,6 +55,8 @@ The smoke layer is the highest value per line: `test_app_imports_without_optiona
 
 ## Integration test design
 
+- **`TestClient` is entered as a context manager, and that is load-bearing.** Outside a `with` block it starts a **new blocking portal — and therefore a new event loop — on every single request**. The async engine's pool then hands a connection created on request 1's loop to request 2 on a different loop, and `pool_pre_ping` fails with `Future attached to a different loop`. Every integration test failed this way the first time CI actually ran. Entering the context manager pins one loop for the session (and runs the app's lifespan, which is closer to production anyway).
+- **`db_session` builds its own engine rather than reusing `app.db.session`'s.** Async fixtures run on pytest-asyncio's loop, not the TestClient portal's, so sharing one pool between them reintroduces exactly the cross-loop failure above — and a poisoned pooled connection then breaks whichever unrelated test draws it next.
 - **A separate database.** Everything runs against `cortexvault_test` (override with `TEST_DB_NAME`), created automatically on first run. Your dev vault is never truncated.
 - **Real migrations.** The suite runs `alembic upgrade head`, so the schema under test is the one that ships — including `CREATE EXTENSION vector` and the HNSW index.
 - **No AI calls.** `fake_providers` is autouse and patches both factories. Embeddings are derived deterministically from a SHA-256 of the text, so identical input always retrieves identically, offline and free. A test that hits Gemini is a bug.

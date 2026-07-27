@@ -10,6 +10,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 
 import uuid
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,8 +23,22 @@ _HERE = pathlib.Path(__file__).parent.parent
 
 
 @pytest.fixture(scope="session")
-def client() -> TestClient:
-    return TestClient(app)
+def client(_migrated_database) -> Iterator[TestClient]:
+    """Entered as a context manager, which is load-bearing rather than stylistic.
+
+    Outside a `with` block, `TestClient` builds a **fresh event loop per
+    request** (`_portal_factory` starts a new blocking portal each call). The
+    app's connection pool then caches asyncpg connections bound to the first
+    request's loop, and the next request — on a different loop — trips
+    `pool_pre_ping` with "Future attached to a different loop". Entering the
+    context manager pins one portal, and therefore one loop, for the whole
+    session. It also runs the app's lifespan, which is closer to production.
+
+    Depends on `_migrated_database` so the schema exists before lifespan
+    startup touches it.
+    """
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture(scope="session", autouse=True)
