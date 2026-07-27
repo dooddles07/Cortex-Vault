@@ -210,12 +210,12 @@ export function CommandPalette({
               <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-2">
                 {routes.length > 0 && (
                   <Group label="Go to">
-                    {routes.map((row) => (
+                    {routes.map((row, i) => (
                       <RowButton
                         key={row.id}
-                        active={rows[active]?.id === row.id}
+                        active={active === i}
                         onSelect={() => go(row)}
-                        onHover={() => setActive(rows.findIndex((r) => r.id === row.id))}
+                        onHover={() => setActive(i)}
                       >
                         <Icon
                           of={row.kind === "route" ? row.glyph : FileText}
@@ -243,16 +243,17 @@ export function CommandPalette({
                         No matches. Try different wording, or open Search for keyword mode.
                       </p>
                     )}
-                    {hits.map((hit) => {
-                      const row = rows.find((r) => r.id === hit.chunk_id);
+                    {hits.map((hit, i) => {
+                      // docs occupy `rows` right after `routes`, in the same
+                      // order as `hits` - direct index, no re-lookup needed.
+                      const rowIndex = routes.length + i;
+                      const row = rows[rowIndex];
                       return (
                         <RowButton
                           key={hit.chunk_id}
-                          active={rows[active]?.id === hit.chunk_id}
+                          active={active === rowIndex}
                           onSelect={() => go(row)}
-                          onHover={() =>
-                            setActive(rows.findIndex((r) => r.id === hit.chunk_id))
-                          }
+                          onHover={() => setActive(rowIndex)}
                         >
                           <Icon of={FileText} size={16} className="text-icon-subtle" />
                           <span className="flex min-w-0 flex-col">

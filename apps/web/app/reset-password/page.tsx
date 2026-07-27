@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Field } from "@/components/ui/input";
 import { ErrorNote } from "@/components/ui/states";
-import { api } from "@/lib/api";
+import { api, setToken } from "@/lib/api";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -25,6 +25,10 @@ function ResetPasswordForm() {
     setBusy(true);
     try {
       await api.resetPassword(token, password);
+      // The success message claims every other session was signed out; if
+      // this browser happens to hold a token too, it must not be the one
+      // exception left dangling.
+      setToken(null);
       setDone(true);
     } catch (err) {
       setError(
