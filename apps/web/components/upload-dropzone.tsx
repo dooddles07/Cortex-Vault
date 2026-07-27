@@ -27,21 +27,33 @@ export function UploadDropzone({ onUploaded }: { onUploaded?: () => void }) {
       const list = Array.from(files ?? []);
       if (list.length === 0) return;
       setBusy(true);
+      const failed: string[] = [];
+      let anySucceeded = false;
       try {
         for (const file of list) {
-          const result = await api.upload(file);
-          // A null job means nothing indexable came out; say so rather than
-          // implying the file is on its way into the index.
-          toast(
-            result.job_id
-              ? `${file.name} is being indexed.`
-              : `${file.name} was stored but cannot be searched (${result.ingest_status}).`,
-            result.job_id ? "success" : "info",
-          );
+          try {
+            const result = await api.upload(file);
+            anySucceeded = true;
+            // A null job means nothing indexable came out; say so rather than
+            // implying the file is on its way into the index.
+            toast(
+              result.job_id
+                ? `${file.name} is being indexed.`
+                : `${file.name} was stored but cannot be searched (${result.ingest_status}).`,
+              result.job_id ? "success" : "info",
+            );
+          } catch (err) {
+            failed.push(file.name);
+            toast(
+              err instanceof Error ? `${file.name}: ${err.message}` : `${file.name} failed to upload.`,
+              "danger",
+            );
+          }
         }
-        onUploaded?.();
-      } catch (err) {
-        toast(err instanceof Error ? err.message : "Upload failed.", "danger");
+        if (anySucceeded) onUploaded?.();
+        if (failed.length > 1) {
+          toast(`${failed.length} files failed to upload.`, "danger");
+        }
       } finally {
         setBusy(false);
         if (input.current) input.current.value = "";
