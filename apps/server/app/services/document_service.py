@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models import Document
 from app.schemas.document import DocumentCreate, DocumentUpdate
+from app.services.folder_service import get_folder
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,8 @@ async def get_document(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.U
 async def create_document(
     db: AsyncSession, user_id: uuid.UUID, payload: DocumentCreate
 ) -> Document:
+    if payload.folder_id:
+        await get_folder(db, user_id, payload.folder_id)
     doc = Document(user_id=user_id, **payload.model_dump())
     db.add(doc)
     await db.commit()
@@ -78,7 +81,10 @@ async def update_document(
     db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID, payload: DocumentUpdate
 ) -> Document:
     doc = await get_document(db, user_id, document_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if updates.get("folder_id"):
+        await get_folder(db, user_id, updates["folder_id"])
+    for field, value in updates.items():
         setattr(doc, field, value)
     await db.commit()
     await db.refresh(doc)
