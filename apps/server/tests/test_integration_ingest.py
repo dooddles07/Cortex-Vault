@@ -104,18 +104,23 @@ def test_reingest_with_unchanged_content_skips_re_embedding(
 
 
 def test_reingest_with_changed_content_does_re_embed(client, auth, inline_worker):
+    """Changed content must not hit the embedding-cache short-circuit. Chunk
+    *count* isn't a reliable signal here — appending one short sentence can
+    still fit in the same single chunk under token-based sizing — so this
+    checks the new content is actually searchable instead."""
     headers = auth()
     doc_id = _create(client, headers)
-    first = client.get("/api/v1/dashboard/summary", headers=headers).json()["chunks"]
 
     client.patch(
         f"/api/v1/documents/{doc_id}",
-        json={"content": CONTENT + "\n\nA genuinely new paragraph."},
+        json={"content": CONTENT + "\n\nA genuinely new distinctive paragraph."},
         headers=headers,
     )
-    second = client.get("/api/v1/dashboard/summary", headers=headers).json()["chunks"]
 
-    assert second > first
+    hits = client.get(
+        "/api/v1/search", params={"q": "genuinely new distinctive paragraph"}, headers=headers
+    ).json()["hits"]
+    assert any("distinctive paragraph" in h["content"] for h in hits)
 
 
 def test_trashed_document_is_excluded_from_listing(client, auth, inline_worker):
