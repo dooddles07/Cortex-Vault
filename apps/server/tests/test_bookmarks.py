@@ -1,33 +1,34 @@
+import httpx
 import pytest
 
-from app.rag.bookmarks import BookmarkFetchError, _assert_public, _extract
+from app.rag.bookmarks import BookmarkFetchError, _extract, _resolve_pinned_ip
 
 
-def test_assert_public_rejects_loopback():
+def test_resolve_pinned_ip_rejects_loopback():
     with pytest.raises(BookmarkFetchError):
-        _assert_public("http://127.0.0.1/")
+        _resolve_pinned_ip(httpx.URL("http://127.0.0.1/"))
 
 
-def test_assert_public_rejects_link_local_metadata_address():
+def test_resolve_pinned_ip_rejects_link_local_metadata_address():
     """169.254.169.254 is the cloud-provider metadata endpoint on AWS/GCP/Azure
     — the canonical SSRF target."""
     with pytest.raises(BookmarkFetchError):
-        _assert_public("http://169.254.169.254/latest/meta-data/")
+        _resolve_pinned_ip(httpx.URL("http://169.254.169.254/latest/meta-data/"))
 
 
-def test_assert_public_rejects_private_network():
+def test_resolve_pinned_ip_rejects_private_network():
     with pytest.raises(BookmarkFetchError):
-        _assert_public("http://10.0.0.5/")
+        _resolve_pinned_ip(httpx.URL("http://10.0.0.5/"))
 
 
-def test_assert_public_rejects_non_http_scheme():
+def test_resolve_pinned_ip_rejects_non_http_scheme():
     with pytest.raises(BookmarkFetchError):
-        _assert_public("file:///etc/passwd")
+        _resolve_pinned_ip(httpx.URL("file:///etc/passwd"))
 
 
-def test_assert_public_allows_a_public_address():
+def test_resolve_pinned_ip_allows_and_returns_a_public_address():
     # An IP literal resolves without a real DNS lookup, so this stays offline.
-    _assert_public("http://8.8.8.8/")
+    assert _resolve_pinned_ip(httpx.URL("http://8.8.8.8/")) == "8.8.8.8"
 
 
 def test_extract_pulls_readable_text_and_title():
