@@ -2,7 +2,7 @@
 
 import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
-import { ACCEPTED } from "@/components/upload-dropzone";
+import { ACCEPTED, MAX_UPLOAD_BYTES, tooLarge } from "@/components/upload-dropzone";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/components/ui/toast";
@@ -16,6 +16,11 @@ export function UploadButton({ onUploaded }: { onUploaded?: () => void }) {
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (tooLarge(file)) {
+      toast(`${file.name} is over the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit.`, "danger");
+      if (input.current) input.current.value = "";
+      return;
+    }
     setBusy(true);
     try {
       const result = await api.upload(file);

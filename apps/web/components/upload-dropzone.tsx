@@ -11,6 +11,14 @@ import { cn } from "@/lib/cn";
 export const ACCEPTED =
   ".pdf,.txt,.md,.csv,.json,.xml,.html,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.tiff,.bmp";
 
+// Mirrors app.core.config.settings.MAX_UPLOAD_BYTES — failing fast here saves
+// uploading a large file over a slow connection only to get a 413 back.
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+export function tooLarge(file: File): boolean {
+  return file.size > MAX_UPLOAD_BYTES;
+}
+
 /**
  * Drag is an accelerator, never the only path - the picker button below is a
  * real focusable control and does the same job. Spec: docs/DESIGN.md section 7
@@ -31,6 +39,14 @@ export function UploadDropzone({ onUploaded }: { onUploaded?: () => void }) {
       let anySucceeded = false;
       try {
         for (const file of list) {
+          if (tooLarge(file)) {
+            failed.push(file.name);
+            toast(
+              `${file.name} is over the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit.`,
+              "danger",
+            );
+            continue;
+          }
           try {
             const result = await api.upload(file);
             anySucceeded = true;
