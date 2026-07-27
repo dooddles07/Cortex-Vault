@@ -8,7 +8,7 @@ Each row = Feature · Purpose/User Flow · DB Impact · API · UI Components · 
 
 | Feature | Purpose / Flow | DB Impact | API | UI | Permissions | Priority |
 |---|---|---|---|---|---|---|
-| Sign up / Sign in | Email+password only, custom JWT sessions; verify email before chat, uploads, and bookmarks (see [SECURITY.md](SECURITY.md)) | `users`, `sessions` | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `POST /auth/verify-email` | Sign-in/sign-up pages, inline verify-email banner in `account-menu.tsx` | Public | P0 |
+| Sign up / Sign in | Email+password only, custom JWT sessions; email verification tracked but not enforced (see [ROADMAP.md](ROADMAP.md) item 12) | `users`, `sessions` | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `POST /auth/verify-email` | Sign-in/sign-up pages | Public | P0 |
 | OAuth (Google/GitHub) | Not implemented — no OAuth UI or provider integration exists | — | — | — | Public | P2 |
 | Password reset | Token-based reset flow, email delivery | `verification_tokens` | `POST /auth/forgot-password`, `POST /auth/reset-password` | `forgot-password`/`reset-password` pages | Public | P0 |
 | Multi-factor auth | TOTP + backup codes; disabling requires a valid code, not just a session token | `users.mfa_secret`, `mfa_backup_codes` | `POST /auth/mfa/enable`, `POST /auth/mfa/verify`, `POST /auth/mfa/challenge`, `POST /auth/mfa/disable` | `MfaCard` in `settings/page.tsx` | Owner (self) | P1 |

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowUp, Check, Copy, Plus, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowUp, Check, Copy, Plus, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CitationPane, type Source } from "@/components/citation-pane";
@@ -64,7 +64,7 @@ export default function ChatPage() {
 
   const ask = useCallback(
     async (question: string) => {
-      if (!question || streaming || !user?.email_verified) return;
+      if (!question || streaming) return;
 
       setDraft("");
       setError(null);
@@ -110,7 +110,7 @@ export default function ChatPage() {
         if (!ac.signal.aborted) setStreaming(false);
       }
     },
-    [conversationId, streaming, user?.email_verified],
+    [conversationId, streaming],
   );
 
   function onNewChat() {
@@ -165,8 +165,7 @@ export default function ChatPage() {
                     key={suggestion}
                     type="button"
                     onClick={() => void ask(suggestion)}
-                    disabled={!user.email_verified}
-                    className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left text-body-sm text-fg-muted transition-colors duration-(--duration-fast) ease-(--ease-standard) hover:border-border-interactive hover:bg-surface-raised hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-surface disabled:hover:text-fg-muted"
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left text-body-sm text-fg-muted transition-colors duration-(--duration-fast) ease-(--ease-standard) hover:border-border-interactive hover:bg-surface-raised hover:text-fg"
                   >
                     {suggestion}
                     <Icon of={ArrowUp} size={14} className="rotate-45 text-icon-subtle" />
@@ -203,13 +202,6 @@ export default function ChatPage() {
         {error && <ErrorNote message={error} />}
         <div ref={bottom} />
 
-        {!user.email_verified && (
-          <span className="flex items-start gap-2 rounded-md bg-tint-warning p-3 text-body-sm text-on-tint-warning">
-            <Icon of={TriangleAlert} size={16} className="mt-px shrink-0" />
-            Verify your email to unlock chat.
-          </span>
-        )}
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -234,7 +226,7 @@ export default function ChatPage() {
                 void ask(draft.trim());
               }
             }}
-            disabled={streaming || !user.email_verified}
+            disabled={streaming}
             placeholder="Ask anything about what you have stored…"
             className="w-full resize-none bg-transparent px-1 py-1 text-body text-fg outline-none placeholder:text-fg-subtle"
           />
@@ -246,7 +238,7 @@ export default function ChatPage() {
               type="submit"
               size="md"
               loading={streaming}
-              disabled={!draft.trim() || !user.email_verified}
+              disabled={!draft.trim()}
               aria-label="Send question"
             >
               <Icon of={ArrowUp} size={16} />
@@ -284,7 +276,7 @@ function Answer({
       <div className="flex items-center gap-2">
         <span aria-hidden className="size-4 rounded-full bg-accent" />
         <span className="text-overline text-fg-subtle">CortexVault</span>
-        {turn.citations && (
+        {turn.citations && turn.citations.length > 0 && (
           <span className="text-caption text-accent-fg">
             grounded in {turn.citations.length}{" "}
             {turn.citations.length === 1 ? "source" : "sources"}

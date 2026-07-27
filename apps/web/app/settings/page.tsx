@@ -77,11 +77,7 @@ export default function SettingsPage() {
                 label="Email"
                 value={user.email}
                 readOnly
-                helper={
-                  user.email_verified
-                    ? "Verified."
-                    : "Not verified — chat and uploads stay locked until you confirm it."
-                }
+                helper={user.email_verified ? "Verified." : "Not verified."}
               />
               <Field
                 label="Name"

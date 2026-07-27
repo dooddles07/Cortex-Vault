@@ -20,7 +20,7 @@ Sign-in returns an identical `401` for unknown email and wrong password, so the 
 
 `POST /auth/sign-up` mints a single-use token (via `app/core/email.py`, Resend) and sends a verification link; the token's SHA-256 hash is stored in `verification_tokens`, never the plaintext — same principle as a password. `POST /auth/forgot-password` returns an identical response whether or not the email is registered, and only sends a reset email when it is. Both flows use the same `verification_tokens` table, distinguished by a `purpose` column, and a token is marked `used_at` on first use so it can't be replayed.
 
-**`email_verified` is now enforced on the AI-cost routes.** `POST /chat`, `POST /uploads`, and `POST /bookmarks` all depend on `require_verified_email` and return `403` for an unverified account. `POST /documents` (plain note-taking) is deliberately left ungated — a document with content does trigger embedding too, but gating this specific route was scoped out of what was approved, not an oversight.
+`email_verified` is tracked on the user row and settable via `POST /auth/verify-email`, but nothing currently gates on it being true — `POST /chat`, `/uploads`, and `/bookmarks` are open to any authenticated account regardless of verification status. This was previously enforced (`require_verified_email`) and was deliberately removed; see [ROADMAP.md](ROADMAP.md).
 
 ### Multi-factor authentication
 

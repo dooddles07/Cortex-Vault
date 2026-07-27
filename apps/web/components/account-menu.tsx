@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { LogOut, Settings, ShieldCheck, TriangleAlert } from "lucide-react";
+import { LogOut, Settings, ShieldCheck } from "lucide-react";
 import * as React from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
@@ -81,13 +81,6 @@ export function AccountMenu() {
             </div>
 
             <span aria-hidden className="mx-2 h-px bg-border" />
-
-            {!user.email_verified && (
-              <span className="mx-2 my-1 flex items-start gap-2 rounded-md bg-tint-warning p-2 text-caption text-on-tint-warning">
-                <Icon of={TriangleAlert} size={14} className="mt-px" />
-                Verify your email to unlock chat and uploads.
-              </span>
-            )}
 
             <MenuLink href="/settings" glyph={Settings} onNavigate={() => setOpen(false)}>
               Settings
