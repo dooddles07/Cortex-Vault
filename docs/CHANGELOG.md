@@ -2,6 +2,28 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-27 (frontend design pass)
+
+### Fixed
+- **Every `[--token]` Tailwind utility in the app was dead.** Tailwind v4 removed the v3 shorthand that auto-wrapped `[--x]` in `var()`, so 87 classes across 23 files compiled to nothing and had presumably never worked: the layout caps (content 1280, chat column 768, sidebar 260, source pane 420), the whole `z-index` scale, every duration and easing token, and `bg-[--scrim]`. Converted to the v4 `(--token)` form. Confirmed by computed style — `max-width` now resolves to `1280px` and the app header to `z-index: 20`, both previously `none` / `auto`.
+- `text-danger-fg` and `text-success-fg` are not mapped in `@theme`, so every error and success message in the app was rendering in inherited body colour rather than red or green. Now `text-danger` / `text-success`.
+- Chat force-scrolled to the bottom on every streamed token, pulling the viewport away from anyone scrolled up re-reading. Now follows only when already within 100px of the bottom, which is what `UI-UX.md` §5 specified.
+- `forgot-password`, `reset-password` and `verify-email` had no `main` landmark, so the layout's skip link pointed at nothing on those three screens.
+- Trashing a document ran with no confirmation and no error handling.
+- The vault table's `sticky top-16` header resolved against its own scroll container rather than the page, hiding the first row behind a 64px band.
+
+### Added
+- **Icons.** `lucide-react`, pinned to one stroke weight through `components/ui/icon.tsx`. Nav items, mobile tabs and the avatar were coloured `<span>` squares.
+- **Motion.** `motion` (Framer Motion v12) plus `lib/motion.ts`, whose `DURATION` / `EASE` / `SPRING` / `STAGGER` constants are read straight off `tokens.css` so no component types a duration on the spot. The two CSS keyframes that already existed were referenced by nothing.
+- **Theme control.** `lib/theme.tsx` — system/light/dark, persisted, applied by a blocking inline script so there is no flash. The app defaults to dark per `DESIGN.md` §1; the dark half of the token system was previously unreachable in-app.
+- **The six components `UI-UX.md` §10 listed as designed-but-never-coded**: `Dialog`/Sheet (native `<dialog>`, so the focus trap and Escape handling are the platform's), the Ctrl/Cmd K command palette, the drag-and-drop upload dropzone, the ingest stepper, the citation source pane, and skeletons. Plus toasts, a segmented control, tooltips, an initials avatar with an account menu, and the collapsible 64px icon rail the Nav spec called for.
+- **Landing page**: the hero is now a live grounded answer — it streams, its citations light up as each claim lands, and pointing at a citation highlights the exact clause it grounds. Also a four-step pipeline section, an honest "what it will and will not do" block, and a footer.
+- `tests/e2e/interactions.spec.ts` — `screens.spec.ts` walks the routes unauthenticated, so five of its eight routes were redirecting to `/sign-in` and asserting against that instead of the app. The new file stubs the API and covers the app shell, palette, theme persistence, dropzone, dialog and reduced motion. **69 passed, 0 failed.**
+
+### Changed
+- All five auth screens moved onto a shared `AuthLayout` so they stop drifting.
+- `DESIGN.md` §1 said light-primary for marketing; the shipped dark treatment reads better on this palette, so the doc now matches the code.
+
 ## 2026-07-27 (later still, part 3)
 
 ### Added

@@ -202,9 +202,15 @@ Code Connect requires a Dev or Full seat on an **Organization or Enterprise** pl
 | `Table Row` · `Tab` | `app/vault/page.tsx` |
 | `Citation Chip` · `Message` | `app/chat/page.tsx` |
 | `Brand / Glyph` | `components/brand/glyph.tsx` |
-| `Empty State` | `components/ui/states.tsx` (`EmptyState`, `Spinner`, `ErrorNote`) |
-| `Upload` | `components/upload-button.tsx` — file-picker button, not a drag-drop zone |
-| `Dialog` · `Ingest Progress` | not yet implemented |
+| `Empty State` | `components/ui/states.tsx` (`EmptyState`, `Spinner`, `ErrorNote`), `components/ui/skeleton.tsx` |
+| `Upload` | `components/upload-dropzone.tsx` (drag + picker), `components/upload-button.tsx` (header action) |
+| `Dialog` · Sheet | `components/ui/dialog.tsx` — native `<dialog>`, `variant="auto" \| "dialog" \| "sheet"` |
+| `Ingest Progress` | `components/ingest-progress.tsx` — `status`, `onRetry` |
+| `SourcePreviewPane` | `components/citation-pane.tsx` — `source`, `onClose` |
+| Command palette | `components/command-palette.tsx` — `useCommandPalette()` owns the Ctrl/Cmd K binding |
+| `Tabs` (segmented) | `components/ui/segmented.tsx` — `segments`, `value`, `onChange` |
+| Theme control | `lib/theme.tsx` (`ThemeProvider`, `ThemeScript`), `components/theme-toggle.tsx` |
+| Motion constants | `lib/motion.ts` — `DURATION`, `EASE`, `SPRING`, `STAGGER`, `exitOf()` |
 
 Converting to real Code Connect after a plan upgrade is mechanical: the variant axes were deliberately built to mirror the code props.
 
@@ -229,6 +235,25 @@ Per route (8 routes × 3 viewports): no console or runtime errors, no horizontal
 
 The first one is worth noting: it was invisible in code review and invisible in the build — only a computed-style assertion in a real browser exposed it, and it silently degraded every `cn()` call that combined a type utility with a text colour.
 
+### Defects the design pass caught
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | **Every `[--token]` utility was dead.** Tailwind v4 dropped the v3 shorthand that auto-wrapped `[--x]` in `var()`. 87 classes across 23 files compiled to nothing: no layout caps (content 1280, chat 768, sidebar 260, pane 420), no z-index scale, no duration or easing tokens, no scrim | Converted every one to the v4 `(--token)` form. Verified by computed style: `max-width` resolves to `1280px` and the app header to `z-index: 20` |
+| 2 | `text-danger-fg` and `text-success-fg` were never mapped in `@theme`, so every error and success message rendered in inherited body colour | Pointed at the real `text-danger` / `text-success` tokens |
+| 3 | Chat force-scrolled to the bottom on every token, yanking the viewport away from anyone reading back | Follows only when already within 100px of the bottom, per section 5 |
+| 4 | The header search control and the Search screen's field shared the accessible name "Search your vault" | Header names the palette it opens; the field keeps the search name |
+| 5 | The palette input never took focus — `showModal()` moves focus to the dialog after React's `autoFocus` has already fired | Explicit focus on open |
+| 6 | `sticky top-16` on the vault table header resolved against its own scroll container, hiding the first row behind a 64px band | Offset dropped to `top-0` |
+| 7 | The 420px citation pane covered the chat composer, and a right margin overflowed instead of narrowing (`w-full` resolves against the content box) | Padding on a wrapper, so the reading column clears the pane |
+| 8 | `Button` laid its children out inline, so an icon plus a label wrapped to two lines | Label span is `inline-flex` |
+| 9 | Trashing a document deleted with no confirmation and no error handling | Confirm dialog plus a toast on both outcomes |
+| 10 | `forgot-password`, `reset-password` and `verify-email` had no `main` landmark, so the skip link targeted nothing | Shared `AuthLayout` supplies it to all five auth screens |
+
+### Coverage gap the pass also closed
+
+`screens.spec.ts` walks the routes unauthenticated, so `/dashboard`, `/vault`, `/chat`, `/search` and `/settings` all redirect to `/sign-in` — five of its eight routes were asserting against the sign-in page. `tests/e2e/interactions.spec.ts` stubs the API so the app shell is exercised for real, and adds the palette, theme persistence, dropzone, dialog and reduced-motion assertions. **69 passed, 0 failed** across the three projects.
+
 ---
 
 ## 10. Open items
@@ -236,6 +261,8 @@ The first one is worth noting: it was invisible in code review and invisible in 
 - **Brand asset inconsistency.** `favicon.png` and `app-icon.png` carry a visibly different, heavier brain drawing than `icon.png` / `logo-primary.png`. The design system is built from the thin gradient mark used by the primary logo. Reconciling the set is brand work, not covered here.
 - **Code Connect is blocked by plan tier** — needs a Dev/Full seat on Organization or Enterprise. Variable code syntax and component `CODE:` descriptions cover the handoff until then.
 - P1/P2 screens stay Figma-only by scope: Version history, Sharing, Workspace members, Notifications, Audit log table, Saved searches.
-- Designed but not yet coded: Dialog/Sheet, drag-drop Upload Dropzone (a plain upload button ships instead), Ingest Progress, command palette overlay, citation source pane, and the per-screen empty/loading/error variants beyond the ones `states.tsx` already covers.
+- **The API has no chunk endpoint.** `SourcePreviewPane` gets `chunk_id`, `document_id` and `document_title` from a citation but no offsets, so a chat citation opens the whole document and says so. Search hits carry their own text, so those open with the retrieved excerpt highlighted. Closing this needs `GET /api/v1/chunks/{id}`.
+- The `IngestProgress` stepper shows which stage a status has reached, not a percentage — the API reports one `ingest_status`, and a per-stage bar would be invented.
+- Still not coded: per-screen empty/loading/error variants beyond what `states.tsx` and `skeleton.tsx` cover.
 - Backend exists and is wired: this section originally described the design-only phase. The FastAPI service in `apps/server` now backs every P0 screen — see [ARCHITECTURE.md](ARCHITECTURE.md). The `packages/db` / `packages/ai` / `packages/auth` split never happened; that TypeScript-services plan was replaced by the standalone Python backend (see [TECH-STACK.md](TECH-STACK.md)).
 - The glyph SVG is 47 KB (~15 KB gzipped) at IoU 0.926 against the source raster. A hand-drawn vector would be smaller and cleaner; this is the best a trace of a 295px PNG can do.

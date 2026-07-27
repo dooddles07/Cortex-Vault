@@ -44,7 +44,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
           aria-describedby={describedBy}
           className={cn(
             "w-full rounded-md border bg-surface px-3 text-fg placeholder:text-fg-subtle",
-            "transition-[border-color] duration-[--duration-fast] ease-[--ease-standard]",
+            "transition-[border-color] duration-(--duration-fast) ease-(--ease-standard)",
             "disabled:cursor-not-allowed disabled:bg-bg-subtle disabled:text-fg-disabled",
             // Read-only stays visually distinct from disabled: normal text colour,
             // decorative border, still focusable.

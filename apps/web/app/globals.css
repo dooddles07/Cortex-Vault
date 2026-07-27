@@ -226,6 +226,11 @@
     animation: none !important;
     opacity: 1 !important;
   }
+  /* Indeterminate progress loses the sheen and holds a static fill instead */
+  .animate-sheen::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
 }
 
 @keyframes cv-blink {
@@ -271,4 +276,33 @@
 
 .animate-scale-in {
   animation: cv-scale-in var(--duration-slow) var(--ease-spring) both;
+}
+
+/* Indeterminate work reads as a sheen travelling across the surface, never a
+   spinner - see docs/UI-UX.md section 5. Determinate work uses a real scaleX. */
+@keyframes cv-sheen {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.animate-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--tint-neutral) 50%,
+    transparent 100%
+  );
+  animation: cv-sheen 1.6s var(--ease-standard) infinite;
 }

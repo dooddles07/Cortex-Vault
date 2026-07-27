@@ -56,7 +56,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "relative inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap transition-[background-color,color,transform,filter] duration-[--duration-fast] ease-[--ease-standard]",
+        "relative inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap transition-[background-color,color,transform,filter] duration-(--duration-fast) ease-(--ease-standard)",
         "disabled:pointer-events-none disabled:opacity-50",
         variant === "link" ? "rounded-xs px-0" : "rounded-md",
         VARIANT[variant],
@@ -65,8 +65,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       )}
       {...props}
     >
-      {/* Label keeps its box while loading so the button never changes width */}
-      <span className={cn(loading && "opacity-0")}>{children}</span>
+      {/* Label keeps its box while loading so the button never changes width.
+          inline-flex so an icon and its text sit on one line rather than wrapping. */}
+      <span
+        className={cn(
+          "inline-flex items-center gap-2 whitespace-nowrap",
+          loading && "opacity-0",
+        )}
+      >
+        {children}
+      </span>
       {loading && (
         <span className="absolute inset-0 grid place-items-center">
           <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

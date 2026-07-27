@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 import { Suspense, useState } from "react";
-import { Glyph, Wordmark } from "@/components/brand/glyph";
+import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Field } from "@/components/ui/input";
 import { ErrorNote } from "@/components/ui/states";
 import { api } from "@/lib/api";
@@ -26,22 +27,30 @@ function ResetPasswordForm() {
       await api.resetPassword(token, password);
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That link is invalid or has expired.");
+      setError(
+        err instanceof Error ? err.message : "That link is invalid or has expired.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   if (!token) {
-    return <ErrorNote message="This reset link is missing its token. Request a new one." />;
+    return (
+      <ErrorNote message="This reset link is missing its token. Request a new one." />
+    );
   }
 
   if (done) {
     return (
       <div className="flex flex-col gap-4">
-        <p role="status" className="text-body text-fg">
-          Password updated. Every other session was signed out — sign in again with your new
-          password.
+        <p
+          role="status"
+          className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4 text-body text-fg"
+        >
+          <Icon of={ShieldCheck} className="mt-0.5 text-success" />
+          Password updated. Every other session was signed out — sign in again
+          with your new password.
         </p>
         <Button size="lg" className="w-full" onClick={() => router.push("/sign-in")}>
           Go to sign in
@@ -60,12 +69,13 @@ function ResetPasswordForm() {
         required
         minLength={8}
         autoComplete="new-password"
+        helper="At least 8 characters. Longer beats complex."
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
       {error && <ErrorNote message={error} />}
-      <Button type="submit" size="lg" className="w-full" disabled={busy}>
-        {busy ? "Updating…" : "Update password"}
+      <Button type="submit" size="lg" className="w-full" loading={busy}>
+        Update password
       </Button>
     </form>
   );
@@ -73,19 +83,11 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="grid min-h-dvh place-items-center px-6 py-16">
-      <div className="flex w-full max-w-[400px] flex-col gap-5">
-        <Link href="/" className="flex items-center gap-2">
-          <Glyph size={32} />
-          <Wordmark className="text-[1.25rem]" />
-        </Link>
-
-        <h1 className="text-h1 text-fg">Choose a new password</h1>
-
-        <Suspense fallback={null}>
-          <ResetPasswordForm />
-        </Suspense>
-      </div>
-    </div>
+    <AuthLayout>
+      <h1 className="text-h1 text-fg">Choose a new password</h1>
+      <Suspense fallback={null}>
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthLayout>
   );
 }

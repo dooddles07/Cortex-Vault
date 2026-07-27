@@ -13,7 +13,7 @@ Target: **WCAG 2.2 AA**. Every ratio in this document was computed, not estimate
 | Axis | Decision | Why |
 |---|---|---|
 | Style | Swiss/minimal structure + modern-dark depth | Product is dense, text-heavy, read-for-hours. Grid and whitespace do the work; ornament competes with content |
-| Theme priority | Dark-primary for the app shell, light-primary for marketing/docs | Matches persona workflow (researcher/developer, long sessions); marketing needs light for legibility on cold traffic |
+| Theme priority | Dark-primary for the app shell, with a system/light/dark control in Settings. Marketing is dark-locked | Matches persona workflow (researcher/developer, long sessions). Marketing was specified as light-primary, but the dark treatment reads better on this palette and shipped that way — resolved in favour of the code |
 | Color use | Brand color is for *state and wayfinding*, never decoration | In a citation product, colored text implies meaning. Reserve indigo for interactive, cyan for AI-generated/retrieved |
 | Density | Comfortable default, compact opt-in on tables and lists | Lawyer/researcher personas scan long result sets |
 | Motion | Functional only. Every animation maps to a cause | Streaming, ingest, and retrieval are the only things that genuinely move |

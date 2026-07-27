@@ -1,31 +1,35 @@
 "use client";
 
+import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { ACCEPTED } from "@/components/upload-dropzone";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 
 export function UploadButton({ onUploaded }: { onUploaded?: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const toast = useToast();
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setBusy(true);
-    setNote(null);
     try {
       const result = await api.upload(file);
       // A null job means nothing indexable was extracted; say so rather than
       // implying the file is being processed.
-      setNote(
+      toast(
         result.job_id
           ? `${file.name} is being indexed.`
           : `${file.name} was stored but cannot be searched (${result.ingest_status}).`,
+        result.job_id ? "success" : "info",
       );
       onUploaded?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : "Upload failed.");
+      toast(err instanceof Error ? err.message : "Upload failed.", "danger");
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";
@@ -33,12 +37,7 @@ export function UploadButton({ onUploaded }: { onUploaded?: () => void }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      {note && (
-        <span role="status" className="hidden text-caption text-fg-subtle md:inline">
-          {note}
-        </span>
-      )}
+    <>
       {/* The button below is the real control. sr-only would leave this input
           exposed as a second, unlabelled "Choose File" control. */}
       <input
@@ -48,11 +47,12 @@ export function UploadButton({ onUploaded }: { onUploaded?: () => void }) {
         aria-hidden
         tabIndex={-1}
         onChange={onPick}
-        accept=".pdf,.txt,.md,.csv,.json,.xml,.html,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.tiff,.bmp"
+        accept={ACCEPTED}
       />
-      <Button size="md" disabled={busy} onClick={() => input.current?.click()}>
-        {busy ? "Uploading…" : "Upload"}
+      <Button size="md" loading={busy} onClick={() => input.current?.click()}>
+        <Icon of={Upload} size={16} />
+        Upload
       </Button>
-    </div>
+    </>
   );
 }

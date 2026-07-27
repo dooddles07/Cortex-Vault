@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { ToastProvider } from "@/components/ui/toast";
 import { AuthProvider } from "@/lib/auth";
+import { ThemeProvider, ThemeScript } from "@/lib/theme";
 import "./globals.css";
 
 // Inter is the only font in the critical path. Display and mono are subset and
@@ -41,10 +43,16 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
+    // themeScript writes data-theme onto this element before paint, so the
+    // server markup and the first client render legitimately differ.
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${inter.variable} ${display.variable} ${mono.variable}`}
     >
+      <head>
+        <ThemeScript />
+      </head>
       <body>
         <a
           href="#main"
@@ -52,7 +60,11 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -11,7 +11,7 @@ export function Card({
       className={cn(
         "rounded-lg border border-border bg-surface p-5 shadow-e1",
         interactive &&
-          "cursor-pointer transition-[background-color,box-shadow] duration-[--duration-fast] ease-[--ease-standard] hover:bg-surface-raised hover:shadow-e2",
+          "cursor-pointer transition-[background-color,box-shadow] duration-(--duration-fast) ease-(--ease-standard) hover:bg-surface-raised hover:shadow-e2",
         className,
       )}
       {...props}

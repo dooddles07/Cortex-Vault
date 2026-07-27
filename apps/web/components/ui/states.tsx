@@ -14,7 +14,7 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <p role="alert" className="text-body-sm text-danger-fg">
+    <p role="alert" className="text-body-sm text-danger">
       {message}
     </p>
   );
