@@ -161,7 +161,11 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
 
-  disableMfa: () => request<void>("/api/v1/auth/mfa/disable", { method: "POST" }),
+  disableMfa: (code: string) =>
+    request<void>("/api/v1/auth/mfa/disable", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
 
   verifyEmail: (token: string) =>
     request<void>("/api/v1/auth/verify-email", {

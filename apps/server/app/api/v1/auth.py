@@ -125,5 +125,6 @@ async def verify_mfa(payload: MfaCodeRequest, user: CurrentUser, db: DbSession) 
 
 
 @router.post("/mfa/disable", status_code=status.HTTP_204_NO_CONTENT)
-async def disable_mfa(user: CurrentUser, db: DbSession) -> None:
-    await mfa_service.disable(db, user)
+async def disable_mfa(payload: MfaCodeRequest, user: CurrentUser, db: DbSession) -> None:
+    if not await mfa_service.disable(db, user, payload.code):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect code")

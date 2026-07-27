@@ -106,11 +106,24 @@ def test_backup_code_completes_the_challenge_once_then_is_spent(client):
     assert second.status_code == 401
 
 
-def test_disable_mfa_allows_re_enrollment(client, auth):
+def test_disable_mfa_requires_a_valid_code(client, auth):
     headers = auth()
     _enable(client, headers)
 
-    response = client.post("/api/v1/auth/mfa/disable", headers=headers)
+    response = client.post(
+        "/api/v1/auth/mfa/disable", json={"code": "000000"}, headers=headers
+    )
+    assert response.status_code == 400
+
+
+def test_disable_mfa_allows_re_enrollment(client, auth):
+    headers = auth()
+    enroll = _enable(client, headers)
+
+    code = pyotp.TOTP(enroll["secret"]).now()
+    response = client.post(
+        "/api/v1/auth/mfa/disable", json={"code": code}, headers=headers
+    )
     assert response.status_code == 204
 
     # Re-enrolling should work again now that it's fully disabled — proves

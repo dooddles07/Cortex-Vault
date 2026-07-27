@@ -140,6 +140,8 @@ function MfaCard({ initiallyEnabled }: { initiallyEnabled: boolean }) {
   const [enabled, setEnabled] = useState(initiallyEnabled);
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
   const [code, setCode] = useState("");
+  const [disabling, setDisabling] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -173,15 +175,18 @@ function MfaCard({ initiallyEnabled }: { initiallyEnabled: boolean }) {
     }
   }
 
-  async function onDisable() {
+  async function onDisable(event: React.FormEvent) {
+    event.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      await api.disableMfa();
+      await api.disableMfa(disableCode);
       setEnabled(false);
+      setDisabling(false);
+      setDisableCode("");
       toast("Two-factor authentication is off.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not disable MFA.");
+      setError(err instanceof Error ? err.message : "Incorrect code.");
     } finally {
       setBusy(false);
     }
@@ -272,12 +277,46 @@ function MfaCard({ initiallyEnabled }: { initiallyEnabled: boolean }) {
           <p className="measure text-body-sm text-fg-muted">
             Sign-in asks for a code from your authenticator app.
           </p>
-          {error && <ErrorNote message={error} />}
-          <div className="flex justify-start">
-            <Button variant="secondary" size="md" onClick={onDisable} loading={busy}>
-              Disable
-            </Button>
-          </div>
+          {disabling ? (
+            <form onSubmit={onDisable} className="flex flex-col gap-4">
+              <Field
+                label="Code from your authenticator app (or a backup code)"
+                name="disable-code"
+                required
+                autoComplete="one-time-code"
+                placeholder="123456"
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value)}
+              />
+              {error && <ErrorNote message={error} />}
+              <div className="flex gap-3">
+                <Button type="submit" variant="secondary" size="md" loading={busy}>
+                  Confirm disable
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  onClick={() => {
+                    setDisabling(false);
+                    setDisableCode("");
+                    setError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {error && <ErrorNote message={error} />}
+              <div className="flex justify-start">
+                <Button variant="secondary" size="md" onClick={() => setDisabling(true)}>
+                  Disable
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-3">

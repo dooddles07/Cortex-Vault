@@ -56,11 +56,17 @@ async def confirm_enrollment(db: AsyncSession, user: User, code: str) -> bool:
     return True
 
 
-async def disable(db: AsyncSession, user: User) -> None:
+async def disable(db: AsyncSession, user: User, code: str) -> bool:
+    """Requires a valid TOTP or backup code before turning MFA off — a bearer
+    token alone proves nothing about possession of the second factor, so a
+    stolen token must not be enough to strip MFA protection."""
+    if not await verify_challenge(db, user, code):
+        return False
     user.mfa_enabled = False
     user.mfa_secret = None
     await db.execute(delete(MfaBackupCode).where(MfaBackupCode.user_id == user.id))
     await db.commit()
+    return True
 
 
 async def verify_challenge(db: AsyncSession, user: User, code: str) -> bool:
