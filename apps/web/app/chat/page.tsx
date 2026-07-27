@@ -36,6 +36,11 @@ export default function ChatPage() {
   const [source, setSource] = useState<Source | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const controller = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => controller.current?.abort();
+  }, []);
 
   useEffect(() => {
     const distance =
@@ -79,26 +84,37 @@ export default function ChatPage() {
           return next;
         });
 
+      const ac = new AbortController();
+      controller.current = ac;
+
       try {
-        await api.chat(question, conversationId, {
-          onCitations: (citations) => patchLastTurn((turn) => ({ ...turn, citations })),
-          onToken: (delta) =>
-            patchLastTurn((turn) => ({ ...turn, content: turn.content + delta })),
-          onDone: (info) => setConversationId(info.conversation_id),
-          onError: (message) => setError(message),
-        });
+        await api.chat(
+          question,
+          conversationId,
+          {
+            onCitations: (citations) => patchLastTurn((turn) => ({ ...turn, citations })),
+            onToken: (delta) =>
+              patchLastTurn((turn) => ({ ...turn, content: turn.content + delta })),
+            onDone: (info) => setConversationId(info.conversation_id),
+            onError: (message) => setError(message),
+          },
+          ac.signal,
+        );
       } catch (err) {
+        if (ac.signal.aborted) return;
         setError(
           err instanceof Error ? err.message : "The answer could not be completed.",
         );
       } finally {
-        setStreaming(false);
+        if (controller.current === ac) controller.current = null;
+        if (!ac.signal.aborted) setStreaming(false);
       }
     },
     [conversationId, streaming],
   );
 
   function onNewChat() {
+    controller.current?.abort();
     setConversationId(null);
     setTurns([]);
     setError(null);
