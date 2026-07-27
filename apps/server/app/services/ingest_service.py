@@ -51,23 +51,32 @@ async def run_ingest(db: AsyncSession, document_id: uuid.UUID) -> int:
     doc.content_hash = new_hash
     await db.commit()
 
-    await db.execute(delete(Chunk).where(Chunk.document_id == document_id))
+    # Self-contained failure handling: a caller that forgets to catch and
+    # mark the document failed (unlike the worker, which does today) must
+    # not leave it reporting "processing" forever.
+    try:
+        await db.execute(delete(Chunk).where(Chunk.document_id == document_id))
 
-    texts = chunk_text(doc.content)
-    vectors = await embed_texts(texts)
-    db.add_all(
-        Chunk(
-            document_id=doc.id,
-            user_id=doc.user_id,
-            position=i,
-            content=text,
-            embedding=vector,
+        texts = chunk_text(doc.content)
+        vectors = await embed_texts(texts)
+        db.add_all(
+            Chunk(
+                document_id=doc.id,
+                user_id=doc.user_id,
+                position=i,
+                content=text,
+                embedding=vector,
+            )
+            for i, (text, vector) in enumerate(zip(texts, vectors, strict=True))
         )
-        for i, (text, vector) in enumerate(zip(texts, vectors, strict=True))
-    )
-    doc.ingest_status = "indexed"
-    await db.commit()
-    return len(texts)
+        doc.ingest_status = "indexed"
+        await db.commit()
+        return len(texts)
+    except Exception:
+        await db.rollback()
+        doc.ingest_status = "failed"
+        await db.commit()
+        raise
 
 
 async def prepare_retry(db: AsyncSession, user_id: uuid.UUID, document_id: uuid.UUID) -> Document:
