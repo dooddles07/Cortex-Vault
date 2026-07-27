@@ -42,7 +42,7 @@ Voice notes with transcription · email ingestion · SSO/SAML · MFA · knowledg
 
 Ordered by risk, not effort.
 
-1. **CI runs but does not gate deploys.** The $0-budget/stop-usage block that previously stopped every job from starting is no longer in effect — the workflow now actually executes lint, the full suite against a real pgvector Postgres, and the web build on every push. Render and Vercel still deploy on push independently of the result, so a red build ships regardless. See [TESTING.md](TESTING.md) for how to gate them.
+1. ~~CI is written but has never run~~ **Done.** The $0-budget/stop-usage block that previously stopped every job from starting is no longer in effect — the workflow now actually executes lint, the full suite against a real pgvector Postgres, and the web build on every push, and Render is gated on it passing (Auto-Deploy: "After CI Checks Pass"). See [TESTING.md](TESTING.md).
 2. **No error tracking.** Failures are only visible in Render's log stream.
 3. **Cold starts.** Render free sleeps after 15 minutes; the next request takes ~50s. The only real fix is a paid instance.
 3. **No staging environment.**
@@ -58,4 +58,3 @@ Ordered by risk, not effort.
 ## Suggested order
 
 1. Email verification + password reset — prerequisite for anyone but you
-2. Turn on Render/Vercel's "wait for CI" settings — CI itself runs now, it just isn't wired to block a bad deploy yet

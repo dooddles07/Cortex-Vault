@@ -87,7 +87,7 @@ Ruff's rule set is pinned explicitly in `pyproject.toml` (`E`, `F`, `I`, `B`, `S
 - **OCR has no round-trip test** — `test_invalid_image_falls_back_to_needs_ocr` only proves the fallback path; nothing in the suite runs a real Tesseract pass, since CI installs the binary but no test currently feeds it a real scanned image.
 - **No coverage measurement.**
 - **Playwright suite targets the web app only** and does not cover the API.
-- **CI does not gate deploys.** Render and Vercel both deploy on push independently of the workflow result, so a red build still ships. Render: Settings → Build & Deploy → "Wait for CI Checks". Vercel: Settings → Git → "Ignored Build Step".
+- **Render is gated on CI; Vercel is not.** `cortexvault-api`'s Auto-Deploy is set to "After CI Checks Pass" (Settings → Deploy), so a red `Server (lint + tests)` run blocks the API deploy. Vercel has no equivalent native toggle — its own build step still blocks its own deploy on a failed `pnpm build`, which covers the case that matters most for a frontend.
 
 ## Manual verification of a deployment
 

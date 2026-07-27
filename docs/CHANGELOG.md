@@ -4,6 +4,9 @@ Notable changes to CortexVault, newest first. Grouped by day rather than semanti
 
 ## 2026-07-27
 
+### Changed
+- Render's `cortexvault-api` Auto-Deploy set to "After CI Checks Pass" (dashboard setting, not code) — a red `Server (lint + tests)` run now blocks the API deploy instead of shipping regardless
+
 ### Added
 - Collections — `collections`/`collection_items` tables (migration `0002`), CRUD plus document membership, scoped to owner on both sides
 - Favorites — `POST`/`DELETE /documents/:id/star`
