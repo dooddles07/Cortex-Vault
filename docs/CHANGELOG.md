@@ -12,6 +12,16 @@ Notable changes to CortexVault, newest first. Grouped by day rather than semanti
 - Favorites — `POST`/`DELETE /documents/:id/star`
 - Search filters — `type`, `folder_id`, `tag_id`, `date_from`, `date_to` on `GET /search`, layered under existing owner+trash scoping
 - Trash retention purge (30-day window) — runs opportunistically on API startup, since the free tier has no cron trigger
+- **Token revocation** — JWTs now carry a `jti` tied to a `sessions` row; `POST /auth/sign-out` revokes it, a password reset revokes every session for that user. Rotating `JWT_SECRET` is now the *global* fallback rather than the only option.
+- **Account lockout** — 5 failed sign-ins locks the account for 15 minutes (`users.failed_login_attempts`/`locked_until`)
+- **Email verification + password reset** (Resend) — `POST /auth/verify-email`, `/auth/forgot-password`, `/auth/reset-password`; single-use tokens hashed at rest (`verification_tokens`), forgot-password always returns the same response whether or not the email is registered. `email_verified` is set by this flow but not yet enforced anywhere (deliberate, see ROADMAP engineering debt). Without `RESEND_API_KEY`, sandbox mode applies (Resend free tier: delivers only to the account owner's own address without a verified domain).
+- **Audit logging** (`audit_logs`) — sign-up, sign-in (success/failure/lockout-blocked), password reset. Append-only; no read endpoint yet (no admin role exists to gate one behind).
+- **Security headers** on every response — `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, HSTS, and CSP (`default-src 'none'`, looser scoped policy only on `/docs`/`/openapi.json` for Swagger UI's own assets)
+- Session-row purge (`purge_old_sessions`, 30-day grace past expiry) added to the same opportunistic startup pass as trash purge
+- Frontend: `/forgot-password`, `/reset-password`, `/verify-email` pages; sign-out now calls the API to actually revoke the session instead of only clearing local storage
+
+### Deferred
+- **MFA** (TOTP + backup codes) — out of scope for this pass; a substantial feature on its own (secret generation, backup codes, a login-challenge flow), flagged rather than rushed alongside everything above
 
 ### Fixed
 - `delete_document` now also deletes the R2 original — a hard-deleted document was leaving its file in the bucket forever, silently counting against the free storage tier

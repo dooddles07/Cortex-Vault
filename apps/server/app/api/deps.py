@@ -9,6 +9,7 @@ from app.core.exceptions import UnauthorizedError
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models import User
+from app.services import session_service
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -21,18 +22,45 @@ async def get_current_user(
 ) -> User:
     if not credentials:
         raise UnauthorizedError()
-    subject = decode_access_token(credentials.credentials)
-    if not subject:
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
         raise UnauthorizedError("Invalid or expired token")
+
     try:
-        user_id = uuid.UUID(subject)
+        user_id = uuid.UUID(payload.get("sub", ""))
+        jti = uuid.UUID(payload.get("jti", ""))
     except ValueError:
-        # A validly signed token with a non-UUID subject is still not usable.
-        raise UnauthorizedError("Invalid token subject") from None
+        # A validly signed token missing/malforming sub or jti predates this
+        # scheme or was tampered with either way; not usable.
+        raise UnauthorizedError("Invalid token") from None
+
+    # Checked before loading the user: a revoked or expired session should
+    # never leak whether the user row itself exists.
+    if not await session_service.is_valid(db, jti):
+        raise UnauthorizedError("Session has been signed out")
+
     user = await db.get(User, user_id)
     if not user:
         raise UnauthorizedError()
     return user
 
 
+async def get_current_session_id(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> uuid.UUID:
+    """Only for the sign-out route — extracts the session id without the
+    full validity check, since signing out an already-expired session should
+    still succeed rather than 401."""
+    if not credentials:
+        raise UnauthorizedError()
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise UnauthorizedError("Invalid or expired token")
+    try:
+        return uuid.UUID(payload.get("jti", ""))
+    except ValueError:
+        raise UnauthorizedError("Invalid token") from None
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentSessionId = Annotated[uuid.UUID, Depends(get_current_session_id)]

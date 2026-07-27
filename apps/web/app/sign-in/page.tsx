@@ -70,6 +70,12 @@ export default function SignInPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <Link
+              href="/forgot-password"
+              className="self-end text-body-sm text-fg-subtle underline underline-offset-4"
+            >
+              Forgot password?
+            </Link>
             {error && <ErrorNote message={error} />}
             <Button type="submit" size="lg" className="w-full" disabled={busy}>
               {busy ? "Signing in…" : "Sign in"}

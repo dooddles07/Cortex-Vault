@@ -60,6 +60,18 @@ class Settings(BaseSettings):
     R2_SECRET_ACCESS_KEY: str | None = None
     R2_BUCKET_NAME: str | None = None
 
+    # Optional. Without it, verification/reset emails are logged, not sent —
+    # sign-up and forgot-password still succeed either way.
+    RESEND_API_KEY: str | None = None
+    MAIL_FROM: str = "CortexVault <onboarding@resend.dev>"
+    # Used to build links inside emails; not read at runtime by the frontend.
+    WEB_BASE_URL: str = "http://localhost:3000"
+
+    ACCOUNT_LOCKOUT_THRESHOLD: int = 5
+    ACCOUNT_LOCKOUT_MINUTES: int = 15
+    EMAIL_VERIFICATION_TTL_HOURS: int = 24
+    PASSWORD_RESET_TTL_MINUTES: int = 30
+
     # Requests per minute. Auth is per IP; the rest are per user.
     RATE_LIMIT_AUTH: int = 10
     RATE_LIMIT_CHAT: int = 20

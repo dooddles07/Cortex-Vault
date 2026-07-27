@@ -6,9 +6,29 @@ What the current build actually enforces, and what it does not. Written to be ho
 
 Passwords are hashed with `bcrypt` (`gensalt()` default cost, per-password salt). Input is truncated to 72 bytes before hashing — bcrypt's hard limit, which `bcrypt>=4.1` raises on rather than silently truncating. Truncation is explicit in `app/core/security.py`.
 
-Tokens are HS256 JWTs carrying `sub` (user id) and `exp`, signed with `JWT_SECRET`, valid 7 days. Verification failures of any kind — bad signature, expiry, malformed — return `None` and surface as `401`.
+Tokens are HS256 JWTs carrying `sub` (user id), `jti` (session id), and `exp`, signed with `JWT_SECRET`, valid 7 days. Verification failures of any kind — bad signature, expiry, malformed — return `None` and surface as `401`.
 
-Sign-in returns an identical `401` for unknown email and wrong password, so the endpoint does not confirm which addresses are registered.
+**The `jti` makes tokens revocable without rotating `JWT_SECRET`.** Each sign-in writes a `sessions` row keyed by `jti`; every authenticated request checks that row hasn't been revoked before trusting the token, in addition to the signature check. `POST /auth/sign-out` revokes the current session. A password reset revokes every session for that user. Rotating `JWT_SECRET` is still the only way to force a *global* sign-out across all users at once.
+
+Sign-in returns an identical `401` for unknown email and wrong password, so the endpoint does not confirm which addresses are registered — except when the account is locked (see Account lockout below), which does confirm the address is registered. That tradeoff is deliberate: an attacker who has already triggered a lockout already knows the address is valid from the failed attempts themselves.
+
+### Account lockout
+
+`users.failed_login_attempts` increments on every wrong password; reaching `ACCOUNT_LOCKOUT_THRESHOLD` (5) sets `locked_until` to `ACCOUNT_LOCKOUT_MINUTES` (15) from now, and sign-in is rejected until it passes, even with the correct password. A successful sign-in resets the counter. Both are `int`/`datetime` columns, not Redis-backed — this is unrelated to the rate limiter below and survives a Redis outage.
+
+### Email verification and password reset
+
+`POST /auth/sign-up` mints a single-use token (via `app/core/email.py`, Resend) and sends a verification link; the token's SHA-256 hash is stored in `verification_tokens`, never the plaintext — same principle as a password. `POST /auth/forgot-password` returns an identical response whether or not the email is registered, and only sends a reset email when it is. Both flows use the same `verification_tokens` table, distinguished by a `purpose` column, and a token is marked `used_at` on first use so it can't be replayed.
+
+**`email_verified` is not yet enforced anywhere** — a signed-up-but-unverified user can still do everything. The mechanism exists; gating chat/uploads behind it is not built, so as not to lock out the only current user before that decision is made deliberately.
+
+### Security headers
+
+Set on every response (see `app/main.py`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Strict-Transport-Security` (2-year max-age, includes subdomains). `Content-Security-Policy` is `default-src 'none'` everywhere except `/docs` and `/openapi.json`, which need Swagger UI's own inline/CDN assets and get a looser policy scoped to just those two paths.
+
+### Audit logging
+
+`app/services/audit_service.py` appends to `audit_logs` on sign-up, sign-in (success, failure, and lockout-blocked), and password reset — `user_id` is nullable so a failed sign-in against an unregistered email still logs (with `user_id = NULL`), which is exactly the kind of event worth keeping. Nothing currently reads this table back: there's no admin role or endpoint yet ([FEATURES.md](FEATURES.md)'s `GET /admin/audit-logs` is `Org admin`-only and there is no such role in this single-tenant build), so today it's queryable only via direct database access.
 
 ## Authorization
 
@@ -72,12 +92,10 @@ The IP is read from `X-Forwarded-For` because Render terminates TLS upstream. Th
 
 | Gap | Risk |
 |---|---|
-| **No token revocation** | A leaked token is valid for its full 7 days. No sign-out, no refresh, no session table |
-| **No email verification** | `email_verified` exists on the model but nothing sets it — anyone can register any address |
-| **No password reset** | Account lockout is permanent |
-| **No audit logging** | [FEATURES.md](FEATURES.md) specifies `audit_logs`; nothing writes it |
+| **`email_verified` isn't enforced** | The verify-email flow exists and works, but nothing currently blocks an unverified account from using the app — anyone can register any address and use it immediately |
+| **No MFA** | Password alone; no TOTP or backup codes |
 
-**Also missing:** MFA, account lockout after failed attempts, security headers (HSTS, CSP, `X-Content-Type-Options`), request-size limits, and dependency scanning in CI.
+**Also missing:** request-size limits beyond `MAX_UPLOAD_BYTES`, and dependency scanning in CI.
 
 ## Data handling
 
@@ -87,8 +105,8 @@ The IP is read from `X-Forwarded-For` because Render terminates TLS upstream. Th
 
 Prompt injection is unmitigated: ingested documents become model context, so a document containing instructions can influence answers. The system prompt constrains the model to answer only from context, which limits but does not eliminate this.
 
-Deletion is soft by default (`deleted_at`), and nothing purges trashed rows — the 30-day window in [FEATURES.md](FEATURES.md) is not enforced. There is no data export, so GDPR access and erasure requests cannot currently be served.
+Deletion is soft by default (`deleted_at`); the 30-day window in [FEATURES.md](FEATURES.md) is enforced by `purge_expired_trash`, which runs opportunistically on API startup rather than a real schedule — see [ROADMAP.md](ROADMAP.md) engineering debt. There is no data export, so GDPR access and erasure requests cannot currently be served.
 
 ## Reporting
 
-No formal process yet. For a personal deployment, keep `GEMINI_API_KEY` and `JWT_SECRET` rotatable — rotating `JWT_SECRET` invalidates every outstanding token, which is currently the only way to force global sign-out.
+No formal process yet. For a personal deployment, keep `GEMINI_API_KEY` and `JWT_SECRET` rotatable — rotating `JWT_SECRET` invalidates every outstanding token across every user, which is the global sign-out of last resort. For a single user or session, `POST /auth/sign-out` (or a password reset, which revokes all of that user's sessions) is the targeted alternative.

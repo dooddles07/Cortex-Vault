@@ -25,7 +25,7 @@ Per minute, fixed window. Auth is keyed on IP; the rest on user id.
 
 | Route | Limit |
 |---|---|
-| `/auth/sign-in`, `/auth/sign-up` | 10 |
+| `/auth/sign-in`, `/auth/sign-up`, `/auth/forgot-password`, `/auth/reset-password` | 10 |
 | `/chat` | 20 |
 | `/uploads` | 20 |
 | `/search` | 60 |
@@ -43,10 +43,14 @@ All are configurable via `RATE_LIMIT_*` environment variables. See [SECURITY.md]
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| `POST` | `/auth/sign-up` | `email`, `password` (8–128), `name?` | `201` + `access_token` |
-| `POST` | `/auth/sign-in` | `email`, `password` | `200` + `access_token` |
+| `POST` | `/auth/sign-up` | `email`, `password` (8–128), `name?` | `201` + `access_token`. Also sends a verification email (Resend) |
+| `POST` | `/auth/sign-in` | `email`, `password` | `200` + `access_token`. `401` after `ACCOUNT_LOCKOUT_THRESHOLD` (5) failed attempts, for `ACCOUNT_LOCKOUT_MINUTES` (15) |
+| `POST` | `/auth/sign-out` | — (bearer token identifies the session) | `204`; revokes the current session only |
+| `POST` | `/auth/verify-email` | `token` | `204` |
+| `POST` | `/auth/forgot-password` | `email` | `200` + generic message, always, regardless of whether the email is registered |
+| `POST` | `/auth/reset-password` | `token`, `new_password` (8–128) | `204`; revokes every session for that user |
 
-Tokens are HS256 JWTs with `sub` (user id) and `exp`, valid 7 days by default. Duplicate email returns `409`; bad credentials return `401`. There is no sign-out — tokens are stateless and cannot be revoked.
+Tokens are HS256 JWTs with `sub` (user id), `jti` (session id), and `exp`, valid 7 days by default. Duplicate email returns `409`; bad credentials return `401`. `jti` ties each token to a `sessions` row, so `/auth/sign-out` and password reset can revoke tokens without waiting for expiry — see [SECURITY.md](SECURITY.md).
 
 ```bash
 curl -X POST $BASE/api/v1/auth/sign-up \

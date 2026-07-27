@@ -60,8 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => {
-    // Tokens are stateless, so this only clears the client. The token stays
-    // valid server-side until it expires.
+    // Revokes the session server-side. Best-effort: the client is cleared
+    // either way, so a network failure here doesn't strand the user signed
+    // in on this device — it just means that one session outlives it.
+    api.signOut().catch(() => {});
     setToken(null);
     setUser(null);
     router.push("/sign-in");

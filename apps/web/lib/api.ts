@@ -132,6 +132,26 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  signOut: () => request<void>("/api/v1/auth/sign-out", { method: "POST" }),
+
+  verifyEmail: (token: string) =>
+    request<void>("/api/v1/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ message: string }>("/api/v1/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    request<void>("/api/v1/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
+
   me: () => request<User>("/api/v1/me"),
 
   updateMe: (patch: { name?: string; theme_preference?: string }) =>

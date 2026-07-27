@@ -49,3 +49,8 @@ services:
         sync: false
       - key: R2_BUCKET_NAME
         sync: false
+      # Optional — verification/reset emails. Omit and they're logged, not sent.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: WEB_BASE_URL
+        value: https://cortex-vault-web.vercel.app
