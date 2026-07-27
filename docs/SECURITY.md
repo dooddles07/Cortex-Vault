@@ -10,6 +10,8 @@ Tokens are HS256 JWTs carrying `sub` (user id), `jti` (session id), and `exp`, s
 
 **The `jti` makes tokens revocable without rotating `JWT_SECRET`.** Each sign-in writes a `sessions` row keyed by `jti`; every authenticated request checks that row hasn't been revoked before trusting the token, in addition to the signature check. `POST /auth/sign-out` revokes the current session. A password reset revokes every session for that user. Rotating `JWT_SECRET` is still the only way to force a *global* sign-out across all users at once.
 
+**The access token is stored in `localStorage`, not an httpOnly cookie** (`apps/web/lib/api.ts`). That is a deliberate tradeoff, not an oversight: the frontend (Vercel) and backend (Render) are different origins, so a cookie-based session would need `SameSite=None; Secure` plus credentialed CORS on every request, which is more moving parts for a free-tier, single-user deployment. The cost is that any XSS anywhere in the app — or a compromised dependency — can read the token directly; there is currently no injectable HTML surface in the frontend (no `dangerouslySetInnerHTML` on user content), which is the mitigation this choice relies on. Revisit before onboarding untrusted users or adding any feature that renders user-controlled HTML.
+
 Sign-in returns an identical `401` for unknown email and wrong password, so the endpoint does not confirm which addresses are registered — except when the account is locked (see Account lockout below), which does confirm the address is registered. That tradeoff is deliberate: an attacker who has already triggered a lockout already knows the address is valid from the failed attempts themselves.
 
 ### Account lockout
