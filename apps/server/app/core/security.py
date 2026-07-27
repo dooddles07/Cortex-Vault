@@ -1,6 +1,5 @@
 import hashlib
 import secrets
-import uuid
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -45,10 +44,6 @@ def decode_access_token(token: str) -> dict | None:
         return None
 
 
-def new_jti() -> str:
-    return str(uuid.uuid4())
-
-
 def generate_token() -> str:
     """URL-safe random token for email verification / password reset links."""
     return secrets.token_urlsafe(32)
@@ -58,3 +53,29 @@ def hash_token(token: str) -> str:
     """Only the hash is ever stored — same principle as a password, so a
     database read alone can't be replayed as the token itself."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+_MFA_CHALLENGE_MINUTES = 5
+
+
+def create_mfa_challenge_token(user_id: str) -> str:
+    """Issued after a password check succeeds for an MFA-enabled account, in
+    place of a real access token. Deliberately shaped differently from a
+    session token — no `jti` — so it can never be mistaken for one:
+    `get_current_user` requires a `jti` and would reject this outright."""
+    expire = datetime.now(UTC) + timedelta(minutes=_MFA_CHALLENGE_MINUTES)
+    return jwt.encode(
+        {"sub": user_id, "purpose": "mfa_challenge", "exp": expire},
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+
+def decode_mfa_challenge_token(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("purpose") != "mfa_challenge":
+        return None
+    return payload.get("sub")

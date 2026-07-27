@@ -8,6 +8,8 @@ from app.core.config import settings
 from app.core.exceptions import ConflictError, UnauthorizedError
 from app.core.security import (
     create_access_token,
+    create_mfa_challenge_token,
+    decode_mfa_challenge_token,
     generate_token,
     hash_password,
     hash_token,
@@ -15,8 +17,8 @@ from app.core.security import (
 )
 from app.models import User, VerificationToken
 from app.models.verification_token import PURPOSE_RESET_PASSWORD, PURPOSE_VERIFY_EMAIL
-from app.schemas.auth import SignInRequest, SignUpRequest, TokenResponse
-from app.services import audit_service, session_service
+from app.schemas.auth import SignInRequest, SignInResponse, SignUpRequest, TokenResponse
+from app.services import audit_service, mfa_service, session_service
 
 
 async def _issue_token(db: AsyncSession, user: User) -> TokenResponse:
@@ -46,7 +48,7 @@ async def sign_up(
 
 async def sign_in(
     db: AsyncSession, payload: SignInRequest, ip: str | None = None
-) -> TokenResponse:
+) -> SignInResponse:
     user = await db.scalar(select(User).where(User.email == payload.email))
 
     if user and user.locked_until and user.locked_until > datetime.now(UTC):
@@ -63,6 +65,30 @@ async def sign_in(
         user.failed_login_attempts = 0
         user.locked_until = None
         await db.commit()
+
+    if user.mfa_enabled:
+        await audit_service.log(db, "sign_in_mfa_required", user_id=user.id, ip=ip)
+        return SignInResponse(mfa_required=True, mfa_token=create_mfa_challenge_token(str(user.id)))
+
+    await audit_service.log(db, "sign_in", user_id=user.id, ip=ip)
+    token = await _issue_token(db, user)
+    return SignInResponse(access_token=token.access_token)
+
+
+async def complete_mfa_challenge(
+    db: AsyncSession, mfa_token: str, code: str, ip: str | None = None
+) -> TokenResponse:
+    subject = decode_mfa_challenge_token(mfa_token)
+    if not subject:
+        raise UnauthorizedError("Invalid or expired MFA challenge")
+
+    user = await mfa_service.get_user_for_challenge(db, subject)
+    if not user or not user.mfa_enabled:
+        raise UnauthorizedError("Invalid or expired MFA challenge")
+
+    if not await mfa_service.verify_challenge(db, user, code):
+        await audit_service.log(db, "mfa_challenge_failed", user_id=user.id, ip=ip)
+        raise UnauthorizedError("Invalid MFA code")
 
     await audit_service.log(db, "sign_in", user_id=user.id, ip=ip)
     return await _issue_token(db, user)

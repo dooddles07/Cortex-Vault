@@ -5,7 +5,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import UnauthorizedError
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models import User
@@ -45,6 +45,19 @@ async def get_current_user(
     return user
 
 
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def require_verified_email(user: CurrentUser) -> None:
+    """Gates chat, uploads, and bookmarks behind a verified email, per
+    FEATURES.md's original spec ("verify email before first AI action").
+    Scoped to exactly these three routes as approved — POST /documents also
+    triggers embedding when content is present but is deliberately left
+    ungated, so plain note-taking never requires verification."""
+    if not user.email_verified:
+        raise ForbiddenError("Verify your email before using this feature")
+
+
 async def get_current_session_id(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> uuid.UUID:
@@ -62,5 +75,5 @@ async def get_current_session_id(
         raise UnauthorizedError("Invalid token") from None
 
 
-CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentSessionId = Annotated[uuid.UUID, Depends(get_current_session_id)]
+RequireVerifiedEmail = Depends(require_verified_email)

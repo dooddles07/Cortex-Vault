@@ -67,7 +67,20 @@ export type User = {
   name: string | null;
   email_verified: boolean;
   theme_preference: string;
+  mfa_enabled: boolean;
   created_at: string;
+};
+
+export type SignInResult = {
+  access_token: string | null;
+  mfa_required: boolean;
+  mfa_token: string | null;
+};
+
+export type MfaEnrollment = {
+  secret: string;
+  otpauth_uri: string;
+  backup_codes: string[];
 };
 
 export type Document = {
@@ -127,12 +140,28 @@ export const api = {
     }),
 
   signIn: (email: string, password: string) =>
-    request<{ access_token: string }>("/api/v1/auth/sign-in", {
+    request<SignInResult>("/api/v1/auth/sign-in", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
+  mfaChallenge: (mfaToken: string, code: string) =>
+    request<{ access_token: string }>("/api/v1/auth/mfa/challenge", {
+      method: "POST",
+      body: JSON.stringify({ mfa_token: mfaToken, code }),
+    }),
+
   signOut: () => request<void>("/api/v1/auth/sign-out", { method: "POST" }),
+
+  enableMfa: () => request<MfaEnrollment>("/api/v1/auth/mfa/enable", { method: "POST" }),
+
+  verifyMfa: (code: string) =>
+    request<void>("/api/v1/auth/mfa/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  disableMfa: () => request<void>("/api/v1/auth/mfa/disable", { method: "POST" }),
 
   verifyEmail: (token: string) =>
     request<void>("/api/v1/auth/verify-email", {

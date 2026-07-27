@@ -16,3 +16,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     theme_preference: Mapped[str] = mapped_column(String(10), default="system")
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set as soon as /mfa/enable is called, before confirmation — an
+    # unconfirmed secret with mfa_enabled still False. See mfa_service.
+    mfa_secret: Mapped[str | None] = mapped_column(String(32))

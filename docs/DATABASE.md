@@ -36,6 +36,7 @@ erDiagram
     users ||--o{ sessions : owns
     users ||--o{ verification_tokens : owns
     users ||--o{ audit_logs : "acted by"
+    users ||--o{ mfa_backup_codes : owns
 ```
 
 ### users
@@ -49,6 +50,8 @@ erDiagram
 | `theme_preference` | `VARCHAR(10)` | `system` \| `light` \| `dark` |
 | `failed_login_attempts` | `INTEGER` | Reset to 0 on successful sign-in |
 | `locked_until` | `TIMESTAMPTZ` | Nullable. Set on the 5th consecutive failed sign-in; sign-in rejected until this passes |
+| `mfa_enabled` | `BOOLEAN` | Default false. Only true once `POST /auth/mfa/verify` confirms a real code |
+| `mfa_secret` | `VARCHAR(32)` | Nullable. Set as soon as `/mfa/enable` is called, before `mfa_enabled` flips true — an unconfirmed secret |
 
 ### documents
 
@@ -115,11 +118,15 @@ Backs both email verification and password reset, distinguished by `purpose` (`v
 
 Append-only. `user_id` is nullable (`ON DELETE SET NULL`, not `CASCADE` — the log entry outlives the user) so events with no resolvable user, like a failed sign-in against an email nobody registered, still get a row. `meta` is a JSON column for action-specific detail (kept schema-less deliberately, since the set of actions worth logging will grow). No endpoint reads this table yet — see Operational notes.
 
+### mfa_backup_codes
+
+10 single-use recovery codes generated alongside every `mfa_secret`. Only `code_hash` (SHA-256) is stored, same principle as `verification_tokens` — the plaintext codes are returned exactly once, in the `/mfa/enable` response, and never recoverable again. `used_at` marks a code spent; `/mfa/enable` called again (after a disable) deletes any leftover codes from a previous, uncompleted enrollment before generating a fresh set.
+
 ## Cascade behavior
 
 | Deleting | Effect |
 |---|---|
-| A user | Removes all their folders, tags, documents, chunks, conversations, jobs, collections, sessions, verification tokens. Audit log rows survive with `user_id` set to `NULL`. |
+| A user | Removes all their folders, tags, documents, chunks, conversations, jobs, collections, sessions, verification tokens, MFA backup codes. Audit log rows survive with `user_id` set to `NULL`. |
 | A document | Removes its chunks, tag links, jobs, collection memberships, and any citations pointing at those chunks |
 | A folder | Removes child folders; sets contained documents' `folder_id` to NULL |
 | A conversation | Removes its messages and their citations |
@@ -137,7 +144,7 @@ alembic downgrade -1                      # roll back one
 
 `alembic/env.py` imports `app.models` for its side effect of registering every model on `Base.metadata`; autogenerate misses tables without it. It reads `DATABASE_URL_SYNC` (psycopg2), not the async URL.
 
-Revision `0001_initial` runs `CREATE EXTENSION IF NOT EXISTS vector` before any table, and reads `settings.EMBEDDING_DIM` for the vector column width so schema and provider config cannot drift. Revision `0002_collections` adds `collections` and `collection_items`. Revision `0003_security` adds `sessions`, `verification_tokens`, `audit_logs`, and the two lockout columns on `users`.
+Revision `0001_initial` runs `CREATE EXTENSION IF NOT EXISTS vector` before any table, and reads `settings.EMBEDDING_DIM` for the vector column width so schema and provider config cannot drift. Revision `0002_collections` adds `collections` and `collection_items`. Revision `0003_security` adds `sessions`, `verification_tokens`, `audit_logs`, and the two lockout columns on `users`. Revision `0004_mfa` adds `mfa_backup_codes` and the two MFA columns on `users`.
 
 ## Operational notes
 

@@ -2,6 +2,17 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-27 (later still)
+
+### Added
+- **MFA** — TOTP (`pyotp`) + 10 single-use backup codes, hashed at rest. `POST /auth/mfa/enable` → `/verify` → sign-in now returns `{mfa_required: true, mfa_token}` for an MFA account instead of a session, and `POST /auth/mfa/challenge` (TOTP or backup code) completes it. The MFA challenge token is a deliberately different JWT shape (no `jti`, a `purpose` claim, 5-minute expiry) so it can never be mistaken for a real session token by `get_current_user`, and vice versa.
+- **`email_verified` enforcement** — `POST /chat`, `/uploads`, `/bookmarks` now return `403` for an unverified account (`require_verified_email`). `POST /documents` deliberately stays open — scoped exactly to what was approved, not every route that happens to trigger embedding.
+- Frontend: sign-in page handles the MFA challenge step; Settings gets a two-factor authentication panel (enroll, confirm, disable) and the "Session" card's copy is corrected (it previously — and wrongly, after today's earlier session-revocation work — said tokens were stateless with no revocation).
+
+### Fixed
+- Dead code: `create_mfa_challenge_token`'s sibling `new_jti()` in `core/security.py` was defined but never called (the actual code always used `uuid.uuid4()` directly) — removed while in the area.
+- Test fixtures: the shared `auth` fixture now pre-verifies its user's email via a direct DB write, since every existing chat/upload/bookmark test would otherwise start failing `403` the moment enforcement shipped. A new `unverified_auth` fixture covers the gated (pre-verification) state explicitly.
+
 ## 2026-07-27
 
 ### Added (RAG quality + ops, later same day)

@@ -17,6 +17,16 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class SignInResponse(BaseModel):
+    """`access_token` is set XOR `mfa_required`+`mfa_token` — never both. The
+    frontend must check `mfa_required` before treating a sign-in as complete."""
+
+    access_token: str | None = None
+    token_type: str = "bearer"
+    mfa_required: bool = False
+    mfa_token: str | None = None
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -32,3 +42,18 @@ class VerifyEmailRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class MfaEnrollResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+    backup_codes: list[str]
+
+
+class MfaCodeRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=9)
+
+
+class MfaChallengeRequest(BaseModel):
+    mfa_token: str
+    code: str = Field(min_length=6, max_length=9)

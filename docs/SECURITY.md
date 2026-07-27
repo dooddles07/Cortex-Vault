@@ -20,7 +20,15 @@ Sign-in returns an identical `401` for unknown email and wrong password, so the 
 
 `POST /auth/sign-up` mints a single-use token (via `app/core/email.py`, Resend) and sends a verification link; the token's SHA-256 hash is stored in `verification_tokens`, never the plaintext — same principle as a password. `POST /auth/forgot-password` returns an identical response whether or not the email is registered, and only sends a reset email when it is. Both flows use the same `verification_tokens` table, distinguished by a `purpose` column, and a token is marked `used_at` on first use so it can't be replayed.
 
-**`email_verified` is not yet enforced anywhere** — a signed-up-but-unverified user can still do everything. The mechanism exists; gating chat/uploads behind it is not built, so as not to lock out the only current user before that decision is made deliberately.
+**`email_verified` is now enforced on the AI-cost routes.** `POST /chat`, `POST /uploads`, and `POST /bookmarks` all depend on `require_verified_email` and return `403` for an unverified account. `POST /documents` (plain note-taking) is deliberately left ungated — a document with content does trigger embedding too, but gating this specific route was scoped out of what was approved, not an oversight.
+
+### Multi-factor authentication
+
+TOTP via `pyotp`, plus 10 single-use backup codes (hex, hashed at rest in `mfa_backup_codes` — same principle as a password or verification token). `POST /auth/mfa/enable` generates a secret and codes but does not yet turn MFA on; `POST /auth/mfa/verify` proves the user has working access to the authenticator app before flipping `users.mfa_enabled`. Once enabled, `POST /auth/sign-in` no longer returns a session directly for that account — it returns `{mfa_required: true, mfa_token}`, and `POST /auth/mfa/challenge` (TOTP code or a backup code) is what actually issues the access token and session.
+
+The MFA challenge token is deliberately a different JWT shape from a real session token — no `jti` claim, a `purpose: "mfa_challenge"` claim, and a 5-minute expiry — so it cannot be mistaken for a session token by `get_current_user`, which requires `jti` and would reject it outright. `decode_mfa_challenge_token` additionally checks the `purpose` claim, so the reverse — presenting a real access token as an MFA challenge token — also fails.
+
+**Not built:** WebAuthn/passkeys, SMS-based MFA, and a UI affordance for regenerating backup codes without a full disable/re-enroll cycle.
 
 ### Security headers
 
@@ -88,14 +96,9 @@ The IP is read from `X-Forwarded-For` because Render terminates TLS upstream. Th
 
 ## Gaps
 
-**Fix before real users:**
+Nothing left on the pre-production checklist that was in scope for this pass. Remaining, lower-priority:
 
-| Gap | Risk |
-|---|---|
-| **`email_verified` isn't enforced** | The verify-email flow exists and works, but nothing currently blocks an unverified account from using the app — anyone can register any address and use it immediately |
-| **No MFA** | Password alone; no TOTP or backup codes |
-
-**Also missing:** request-size limits beyond `MAX_UPLOAD_BYTES`, and dependency scanning in CI.
+**Also missing:** WebAuthn/passkeys as an MFA alternative, request-size limits beyond `MAX_UPLOAD_BYTES`, and dependency scanning in CI.
 
 ## Data handling
 

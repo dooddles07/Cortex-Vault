@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, RequireVerifiedEmail
 from app.api.limits import UploadLimit
 from app.core.config import settings
 from app.rag.extraction import extract_text
@@ -32,7 +32,7 @@ async def _read_capped(file: UploadFile, max_bytes: int) -> bytes:
     "",
     response_model=UploadAccepted,
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[UploadLimit],
+    dependencies=[UploadLimit, RequireVerifiedEmail],
 )
 async def upload(
     user: CurrentUser,

@@ -44,13 +44,19 @@ All are configurable via `RATE_LIMIT_*` environment variables. See [SECURITY.md]
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | `POST` | `/auth/sign-up` | `email`, `password` (8–128), `name?` | `201` + `access_token`. Also sends a verification email (Resend) |
-| `POST` | `/auth/sign-in` | `email`, `password` | `200` + `access_token`. `401` after `ACCOUNT_LOCKOUT_THRESHOLD` (5) failed attempts, for `ACCOUNT_LOCKOUT_MINUTES` (15) |
+| `POST` | `/auth/sign-in` | `email`, `password` | `200`. `{access_token, mfa_required: false}` normally, or `{access_token: null, mfa_required: true, mfa_token}` if the account has MFA enabled — see below. `401` after `ACCOUNT_LOCKOUT_THRESHOLD` (5) failed attempts, for `ACCOUNT_LOCKOUT_MINUTES` (15) |
+| `POST` | `/auth/mfa/challenge` | `mfa_token`, `code` (TOTP or a backup code) | `200` + `access_token` — this is what actually completes sign-in for an MFA account |
 | `POST` | `/auth/sign-out` | — (bearer token identifies the session) | `204`; revokes the current session only |
 | `POST` | `/auth/verify-email` | `token` | `204` |
 | `POST` | `/auth/forgot-password` | `email` | `200` + generic message, always, regardless of whether the email is registered |
 | `POST` | `/auth/reset-password` | `token`, `new_password` (8–128) | `204`; revokes every session for that user |
+| `POST` | `/auth/mfa/enable` | — (bearer) | `200` + `secret`, `otpauth_uri`, `backup_codes` (shown once). Does not yet turn MFA on |
+| `POST` | `/auth/mfa/verify` | `code` | `204`; confirms enrollment and sets `mfa_enabled = true`. `400` on an incorrect code |
+| `POST` | `/auth/mfa/disable` | — (bearer) | `204`; clears the secret and all backup codes |
 
 Tokens are HS256 JWTs with `sub` (user id), `jti` (session id), and `exp`, valid 7 days by default. Duplicate email returns `409`; bad credentials return `401`. `jti` ties each token to a `sessions` row, so `/auth/sign-out` and password reset can revoke tokens without waiting for expiry — see [SECURITY.md](SECURITY.md).
+
+`mfa_token` (from `/auth/sign-in`) is a different, short-lived (5 min) JWT shape with no `jti` — it cannot be used as a bearer token anywhere else, and expires whether or not it's used.
 
 ```bash
 curl -X POST $BASE/api/v1/auth/sign-up \
@@ -62,7 +68,7 @@ curl -X POST $BASE/api/v1/auth/sign-up \
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/me` | Current user |
+| `GET` | `/me` | Current user, including `email_verified` and `mfa_enabled` |
 | `PATCH` | `/me` | `name`, `theme_preference` (`system\|light\|dark`) |
 
 ## Dashboard
@@ -93,7 +99,7 @@ List responses are `{items, total, limit, offset}`.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` (null when nothing is indexable) |
+| `POST` | `/uploads` | multipart `file`. Returns `202` + `document_id`, `job_id` (null when nothing is indexable). `403` if the account's email isn't verified |
 | `GET` | `/uploads/{document_id}/status` | `ingest_status`, `job_status`, `error` |
 
 Text is extracted at upload time. Supported: **PDF** (via `pypdf`, OCR fallback for scans), **`.docx`/`.pptx`/`.xlsx`** (`python-docx`/`python-pptx`/`openpyxl`), **images** (`.png`/`.jpg`/`.jpeg`/`.webp`/`.tiff`/`.bmp`, via OCR), plain text, Markdown, CSV, JSON, XML, HTML. Detection uses the MIME type, falling back to the file extension.
@@ -118,7 +124,7 @@ Anything else (archives, unrecognized binaries) is stored but never indexed. Upl
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/bookmarks` | `url`, `folder_id?`. Fetches the page, extracts readable text (`trafilatura`), returns `202` + `document_id`, `job_id` |
+| `POST` | `/bookmarks` | `url`, `folder_id?`. Fetches the page, extracts readable text (`trafilatura`), returns `202` + `document_id`, `job_id`. `403` if the account's email isn't verified |
 
 Guarded against SSRF: only `http`/`https`, rejects private/loopback/link-local/cloud-metadata addresses, re-validates every redirect hop. See [SECURITY.md](SECURITY.md).
 
@@ -159,7 +165,7 @@ Trashed documents are excluded.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/chat` | `message`, `conversation_id?`. Returns `text/event-stream` |
+| `POST` | `/chat` | `message`, `conversation_id?`. Returns `text/event-stream`. `403` if the account's email isn't verified |
 | `GET` | `/conversations` | List, newest first |
 | `GET` | `/conversations/{id}` | Conversation + full message history |
 | `DELETE` | `/conversations/{id}` | `204`; cascades to messages and citations |

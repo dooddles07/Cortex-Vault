@@ -10,12 +10,17 @@ import { ErrorNote } from "@/components/ui/states";
 import { useAuth } from "@/lib/auth";
 
 export default function SignInPage() {
-  const { signIn, user } = useAuth();
+  const { signIn, completeMfaChallenge, user } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Set once sign-in reports the account has MFA enabled — switches the
+  // form to the code-entry step instead of completing the session.
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
     if (user) router.replace("/dashboard");
@@ -26,10 +31,29 @@ export default function SignInPage() {
     setError(null);
     setBusy(true);
     try {
-      await signIn(email, password);
-      router.replace("/dashboard");
+      const result = await signIn(email, password);
+      if (result?.mfaRequired) {
+        setMfaToken(result.mfaToken);
+      } else {
+        router.replace("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onMfaSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!mfaToken) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await completeMfaChallenge(mfaToken, mfaCode);
+      router.replace("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Incorrect code.");
     } finally {
       setBusy(false);
     }
@@ -44,50 +68,77 @@ export default function SignInPage() {
             <Wordmark className="text-[1.25rem]" />
           </Link>
 
-          <h1 className="text-h1 text-fg">Welcome back</h1>
-          <p className="text-body text-fg-muted">Sign in to your vault.</p>
+          {mfaToken ? (
+            <>
+              <h1 className="text-h1 text-fg">Enter your code</h1>
+              <p className="text-body text-fg-muted">
+                Open your authenticator app, or use a backup code.
+              </p>
+              <form className="flex flex-col gap-4" onSubmit={onMfaSubmit}>
+                <Field
+                  label="Code"
+                  name="code"
+                  size="lg"
+                  required
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                />
+                {error && <ErrorNote message={error} />}
+                <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                  {busy ? "Verifying…" : "Verify"}
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <h1 className="text-h1 text-fg">Welcome back</h1>
+              <p className="text-body text-fg-muted">Sign in to your vault.</p>
 
-          <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-            <Field
-              label="Email"
-              type="email"
-              name="email"
-              size="lg"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Field
-              label="Password"
-              type="password"
-              name="password"
-              size="lg"
-              required
-              minLength={8}
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Link
-              href="/forgot-password"
-              className="self-end text-body-sm text-fg-subtle underline underline-offset-4"
-            >
-              Forgot password?
-            </Link>
-            {error && <ErrorNote message={error} />}
-            <Button type="submit" size="lg" className="w-full" disabled={busy}>
-              {busy ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
+              <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+                <Field
+                  label="Email"
+                  type="email"
+                  name="email"
+                  size="lg"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Field
+                  label="Password"
+                  type="password"
+                  name="password"
+                  size="lg"
+                  required
+                  minLength={8}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <Link
+                  href="/forgot-password"
+                  className="self-end text-body-sm text-fg-subtle underline underline-offset-4"
+                >
+                  Forgot password?
+                </Link>
+                {error && <ErrorNote message={error} />}
+                <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                  {busy ? "Signing in…" : "Sign in"}
+                </Button>
+              </form>
 
-          <p className="text-center text-body-sm text-fg-subtle">
-            New here?{" "}
-            <Link href="/sign-up" className="text-primary-fg underline underline-offset-4">
-              Create an account
-            </Link>
-          </p>
+              <p className="text-center text-body-sm text-fg-subtle">
+                New here?{" "}
+                <Link href="/sign-up" className="text-primary-fg underline underline-offset-4">
+                  Create an account
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </main>
 

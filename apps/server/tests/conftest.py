@@ -150,7 +150,39 @@ async def db_session():
 
 @pytest.fixture
 def auth(client: TestClient):
-    """Register a fresh user and return its Authorization header."""
+    """Register a fresh, pre-verified user and return its Authorization
+    header. Verified immediately via a direct DB write, bypassing the real
+    verify-email flow — most tests exercise the post-verification happy
+    path, and re-verifying through email in every test would mean either
+    mocking Resend everywhere or reading the token out of the database
+    anyway. test_integration_auth.py exercises the real flow directly, and
+    `unverified_auth` below covers the gated (pre-verification) state."""
+    import sqlalchemy
+
+    def _make() -> dict[str, str]:
+        email = f"t-{uuid.uuid4().hex[:12]}@cortexvault-test.com"
+        response = client.post(
+            "/api/v1/auth/sign-up", json={"email": email, "password": "TestPassw0rd!123"}
+        )
+        assert response.status_code == 201, response.text
+
+        engine = sqlalchemy.create_engine(settings.DATABASE_URL_SYNC)
+        with engine.begin() as conn:
+            conn.execute(
+                sqlalchemy.text("UPDATE users SET email_verified = true WHERE email = :email"),
+                {"email": email},
+            )
+        engine.dispose()
+
+        return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+    return _make
+
+
+@pytest.fixture
+def unverified_auth(client: TestClient):
+    """Register a fresh user without verifying it — for testing the
+    email-verification gate itself (see require_verified_email)."""
 
     def _make() -> dict[str, str]:
         email = f"t-{uuid.uuid4().hex[:12]}@cortexvault-test.com"

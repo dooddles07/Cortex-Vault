@@ -34,6 +34,7 @@ dependencies = [
     "trafilatura>=1.12",
     "boto3>=1.35",
     "tiktoken>=0.8",
+    "pyotp>=2.9",
 ]
 
 [project.optional-dependencies]

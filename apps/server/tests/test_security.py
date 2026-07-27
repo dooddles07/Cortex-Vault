@@ -1,6 +1,8 @@
 from app.core.security import (
     create_access_token,
+    create_mfa_challenge_token,
     decode_access_token,
+    decode_mfa_challenge_token,
     generate_token,
     hash_password,
     hash_token,
@@ -38,3 +40,23 @@ def test_hash_token_is_deterministic_and_one_way():
     token = generate_token()
     assert hash_token(token) == hash_token(token)
     assert hash_token(token) != token
+
+
+def test_mfa_challenge_token_roundtrip():
+    assert decode_mfa_challenge_token(create_mfa_challenge_token("user-123")) == "user-123"
+
+
+def test_mfa_challenge_token_rejected_by_the_access_token_decoder():
+    """A session-scoped route must never accept an MFA challenge token —
+    it carries no `jti`, so get_current_user rejects it outright."""
+    challenge = create_mfa_challenge_token("user-123")
+    payload = decode_access_token(challenge)
+    assert payload is not None  # signature is valid...
+    assert "jti" not in payload  # ...but it has no session to check
+
+
+def test_access_token_rejected_by_the_mfa_challenge_decoder():
+    """The reverse must also hold: a real session token must not satisfy an
+    MFA challenge — purpose is checked, not just the signature."""
+    access = create_access_token("user-123", "jti-456")
+    assert decode_mfa_challenge_token(access) is None

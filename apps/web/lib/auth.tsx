@@ -11,10 +11,15 @@ import {
 } from "react";
 import { api, getToken, setToken, type User } from "@/lib/api";
 
+/** Returned by signIn when the account has MFA enabled: no session exists
+ * yet, and the caller must collect a code and call completeMfaChallenge. */
+type MfaRequired = { mfaRequired: true; mfaToken: string };
+
 type AuthState = {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<MfaRequired | void>;
+  completeMfaChallenge: (mfaToken: string, code: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => void;
 };
@@ -44,8 +49,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
-      const { access_token } = await api.signIn(email, password);
+    async (email: string, password: string): Promise<MfaRequired | void> => {
+      const result = await api.signIn(email, password);
+      if (result.mfa_required) {
+        return { mfaRequired: true, mfaToken: result.mfa_token! };
+      }
+      await complete(result.access_token!);
+    },
+    [complete],
+  );
+
+  const completeMfaChallenge = useCallback(
+    async (mfaToken: string, code: string) => {
+      const { access_token } = await api.mfaChallenge(mfaToken, code);
       await complete(access_token);
     },
     [complete],
@@ -70,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, completeMfaChallenge, signUp, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -12,6 +12,7 @@ class UserRead(ORMModel):
     name: str | None
     email_verified: bool
     theme_preference: str
+    mfa_enabled: bool
     created_at: datetime
 
 

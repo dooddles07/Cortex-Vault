@@ -21,13 +21,13 @@ Backend deployed and verified end-to-end in production.
 | Object storage | Cloudflare R2, optional — set `R2_*` or originals are discarded after text extraction, same as before |
 | Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
 | Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
-| Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset (Resend), audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny) |
+| Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset (Resend) — now enforced on chat/uploads/bookmarks (`403` if unverified), audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny), MFA (TOTP + 10 backup codes, `pyotp`) |
 | RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff) |
 | Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`) |
 
 ## P0 — remaining MVP gaps
 
-Nothing left unbuilt from the original P0 list in [FEATURES.md](FEATURES.md). Email verification exists but isn't enforced (see Engineering debt) — that's a policy decision, not a missing mechanism.
+Nothing left unbuilt from the original P0 list in [FEATURES.md](FEATURES.md).
 
 ## P1
 
@@ -35,7 +35,7 @@ Version history · document summaries · auto tag/folder suggestions · YouTube 
 
 ## P2
 
-Voice notes with transcription · email ingestion · SSO/SAML · MFA (not built — deferred out of the security pass that shipped session revocation, lockout, email flows, and audit logging, since TOTP + backup codes + a login-challenge flow is a substantial feature on its own) · knowledge graph over extracted entities · multi-agent research assistant · third-party connector marketplace.
+Voice notes with transcription · email ingestion · SSO/SAML · WebAuthn/passkeys (as an MFA alternative) · knowledge graph over extracted entities · multi-agent research assistant · third-party connector marketplace.
 
 ## Engineering debt
 
@@ -53,12 +53,11 @@ Ordered by risk, not effort.
 9. **Free-tier AI has privacy implications.** Google may train on free-tier data — blocking for real user documents. See [AI.md](AI.md).
 10. **OCR runs inline, on Render's shared free vCPU.** No worker is deployed, so a scanned PDF's OCR pass competes with request handling in the same process and blocks that one upload request for its duration. Cloudflare R2 (object storage) and Groq (chat) are the only external services in the stack that could still function if this ran in a real worker — restoring `INGEST_MODE=queue` would move OCR off the request path.
 11. **Trash and session-row purges are opportunistic, not scheduled.** No free host offers a cron trigger the API can use, so `purge_expired_trash` and `purge_old_sessions` both run once on API startup (`app/main.py`) — which, on Render free, is every time the instance wakes from an idle sleep. A vault that stays busy enough to never cold-start could accumulate expired rows indefinitely between deploys. A real fix would be a Cloudflare Worker Cron Trigger (free tier includes them) calling an internal purge endpoint — not built, since it adds a second free service to operate for a low-stakes feature.
-12. **`email_verified` isn't enforced anywhere.** The verify-email mechanism works end to end, but no route currently checks the flag before letting an unverified account use chat/uploads/etc. Deliberately not gated yet, so as not to lock out the only current user before that policy decision is made on purpose.
+12. ~~`email_verified` isn't enforced anywhere~~ **Done.** `require_verified_email` gates `POST /chat`, `/uploads`, `/bookmarks` — `403` until the account is verified. `POST /documents` is deliberately left ungated. See [SECURITY.md](SECURITY.md).
 13. **Without `RESEND_API_KEY` set, Resend's free tier only delivers to the account owner's own verified address** (sandbox mode) — fine for solo use, blocking before other real users can actually receive verification/reset emails. See [SECURITY.md](SECURITY.md).
+14. **MFA has no WebAuthn/passkey alternative**, and no UI to regenerate backup codes without a full disable/re-enroll. Low priority — TOTP + backup codes covers the realistic threat model for a solo/small deployment.
 
 ## Suggested order
 
-1. Decide the `email_verified` enforcement policy — the mechanism is built, gating isn't
-2. MFA (TOTP + backup codes) — deferred out of the security pass that shipped everything else in this list
-3. Error tracking (Sentry, free tier) — needs an account, same pattern as R2/Resend
-4. Re-ranking model — needs a provider decision (hosted API vs. local cross-encoder) before it can be built
+1. Error tracking (Sentry, free tier) — needs an account, same pattern as R2/Resend
+2. Re-ranking model — needs a provider decision (hosted API vs. local cross-encoder) before it can be built

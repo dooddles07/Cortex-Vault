@@ -4,6 +4,7 @@ from app.models.collection import Collection, CollectionItem
 from app.models.document import Chunk, Document, DocumentTag
 from app.models.folder import Folder
 from app.models.job import Job
+from app.models.mfa_backup_code import MfaBackupCode
 from app.models.session import Session
 from app.models.tag import Tag
 from app.models.user import User
@@ -19,6 +20,7 @@ __all__ = [
     "DocumentTag",
     "Folder",
     "Job",
+    "MfaBackupCode",
     "Message",
     "MessageCitation",
     "Session",
