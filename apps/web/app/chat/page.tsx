@@ -107,7 +107,7 @@ export default function ChatPage() {
         );
       } finally {
         if (controller.current === ac) controller.current = null;
-        if (!ac.signal.aborted) setStreaming(false);
+        setStreaming(false);
       }
     },
     [conversationId, streaming],
