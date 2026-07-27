@@ -66,8 +66,9 @@ async def test_unhandled_exception_handler_returns_a_traceable_request_id():
     """A live-demo 500 with nothing to go on but a screenshot should still be
     traceable back to a server log line, independent of whether Sentry is
     configured."""
-    import app.main
     from starlette.requests import Request
+
+    import app.main
 
     request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
 
