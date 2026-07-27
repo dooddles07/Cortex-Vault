@@ -103,11 +103,28 @@ def inline_worker(monkeypatch):
 @pytest.fixture
 async def db_session():
     """Raw AsyncSession for tests that need to manipulate rows directly (e.g.
-    backdating a timestamp), bypassing the API."""
-    from app.db.session import SessionLocal
+    backdating a timestamp), bypassing the API.
 
-    async with SessionLocal() as session:
-        yield session
+    Deliberately its own engine, not app.db.session's. `client` (TestClient)
+    runs every request inside anyio's BlockingPortal, a persistent background
+    thread with its own event loop, separate from whatever loop pytest-asyncio
+    runs this async fixture in. A connection pool shared between the two
+    hands out connections bound to one loop to callers on the other —
+    asyncpg raises "Future attached to a different loop", and the poisoned
+    pooled connection then fails whichever unrelated test draws it next.
+    A dedicated engine, disposed at teardown, never enters that shared pool.
+    """
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.core.config import settings
+
+    engine = create_async_engine(settings.DATABASE_URL)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with session_factory() as session:
+            yield session
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture
