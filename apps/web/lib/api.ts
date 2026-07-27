@@ -277,7 +277,11 @@ async function chat(
     throw new ApiError(401, "Your session expired. Sign in again.");
   }
   if (!response.ok || !response.body) {
-    throw new ApiError(response.status, `Chat failed (${response.status})`);
+    const body = await response.json().catch(() => null);
+    throw new ApiError(
+      response.status,
+      readDetail(body, `Chat failed (${response.status})`),
+    );
   }
 
   const reader = response.body.getReader();
