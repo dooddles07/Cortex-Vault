@@ -13,6 +13,21 @@ from app.workers.queue import close_pool
 configure_logging()
 
 
+def _init_sentry() -> None:
+    if not settings.SENTRY_DSN:
+        return
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENV,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+    )
+
+
+_init_sentry()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await _purge_trash_on_startup()

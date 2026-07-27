@@ -23,7 +23,7 @@ Backend deployed and verified end-to-end in production.
 | Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
 | Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset (Resend) — now enforced on chat/uploads/bookmarks (`403` if unverified), audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny), MFA (TOTP + 10 backup codes, `pyotp`) |
 | RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff) |
-| Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`) |
+| Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`), error tracking via Sentry (optional, `SENTRY_DSN`) |
 
 ## P0 — remaining MVP gaps
 
@@ -42,7 +42,7 @@ Voice notes with transcription · email ingestion · SSO/SAML · WebAuthn/passke
 Ordered by risk, not effort.
 
 1. ~~CI is written but has never run~~ **Done.** The $0-budget/stop-usage block that previously stopped every job from starting is no longer in effect — the workflow now actually executes lint, the full suite against a real pgvector Postgres, and the web build on every push, and Render is gated on it passing (Auto-Deploy: "After CI Checks Pass"). See [TESTING.md](TESTING.md).
-2. **No error tracking.** Failures are only visible in Render's log stream.
+2. ~~No error tracking~~ **Done, optional.** Sentry (`sentry-sdk[fastapi]`), gated on `SENTRY_DSN` — unset, failures are still only visible in Render's log stream, same as before.
 3. **Cold starts.** Render free sleeps after 15 minutes; the next request takes ~50s. The only real fix is a paid instance.
 3. **No staging environment.**
 4. ~~Token revocation~~ **Done.** Sessions table keyed by JWT `jti`; sign-out and password reset both revoke. See [SECURITY.md](SECURITY.md).
@@ -59,5 +59,4 @@ Ordered by risk, not effort.
 
 ## Suggested order
 
-1. Error tracking (Sentry, free tier) — needs an account, same pattern as R2/Resend
-2. Re-ranking model — needs a provider decision (hosted API vs. local cross-encoder) before it can be built
+1. Re-ranking model — needs a provider decision (hosted API vs. local cross-encoder) before it can be built

@@ -83,5 +83,11 @@ class Settings(BaseSettings):
     RATE_LIMIT_UPLOAD: int = 20
     RATE_LIMIT_SEARCH: int = 60
 
+    # Optional. Without it, failures are only visible in Render's log stream.
+    SENTRY_DSN: str | None = None
+    # 0.0 = errors only, no performance traces — traces count against the
+    # same free event quota as errors do.
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
 
 settings = Settings()  # type: ignore[call-arg]

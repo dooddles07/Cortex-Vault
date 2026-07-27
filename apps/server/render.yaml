@@ -54,3 +54,6 @@ services:
         sync: false
       - key: WEB_BASE_URL
         value: https://cortex-vault-web.vercel.app
+      # Optional — error tracking. Omit and failures stay Render-log-only.
+      - key: SENTRY_DSN
+        sync: false

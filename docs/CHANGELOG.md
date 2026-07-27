@@ -2,6 +2,13 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-27 (later still, part 2)
+
+### Added
+- **Error tracking** — Sentry (`sentry-sdk[fastapi]`), gated on `SENTRY_DSN`. Unset, behavior is unchanged (Render-log-only). `_init_sentry()` extracted as its own function in `main.py`, same reason `_purge_trash_on_startup` is — so the guard is unit-testable without reimporting the whole app.
+
+This closes the last zero-cost item from the original audit. Remaining (re-ranking) needs a provider decision, not just an account.
+
 ## 2026-07-27 (later still)
 
 ### Added

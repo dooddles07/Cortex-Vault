@@ -35,6 +35,7 @@ dependencies = [
     "boto3>=1.35",
     "tiktoken>=0.8",
     "pyotp>=2.9",
+    "sentry-sdk[fastapi]>=2.0",
 ]
 
 [project.optional-dependencies]

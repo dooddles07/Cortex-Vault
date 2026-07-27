@@ -20,6 +20,32 @@ def test_openapi_schema_builds(client):
     assert client.get("/openapi.json").status_code == 200
 
 
+def test_sentry_init_skipped_without_dsn(monkeypatch):
+    import app.main
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "SENTRY_DSN", None)
+    monkeypatch.setattr(
+        "sentry_sdk.init", lambda **_: (_ for _ in ()).throw(AssertionError("must not init"))
+    )
+    app.main._init_sentry()
+
+
+def test_sentry_init_called_with_dsn(monkeypatch):
+    import app.main
+    from app.core.config import settings
+
+    captured = {}
+    monkeypatch.setattr(settings, "SENTRY_DSN", "https://key@example.ingest.sentry.io/1")
+    monkeypatch.setattr(settings, "SENTRY_TRACES_SAMPLE_RATE", 0.1)
+    monkeypatch.setattr("sentry_sdk.init", lambda **kw: captured.update(kw))
+
+    app.main._init_sentry()
+
+    assert captured["dsn"] == "https://key@example.ingest.sentry.io/1"
+    assert captured["traces_sample_rate"] == 0.1
+
+
 async def test_startup_trash_purge_never_crashes_boot(monkeypatch):
     """No scheduler exists on the free tier, so the trash purge runs
     opportunistically on API startup (see app/main.py) — it must never take
