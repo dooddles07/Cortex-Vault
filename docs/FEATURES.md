@@ -8,9 +8,10 @@ Each row = Feature · Purpose/User Flow · DB Impact · API · UI Components · 
 
 | Feature | Purpose / Flow | DB Impact | API | UI | Permissions | Priority |
 |---|---|---|---|---|---|---|
-| Sign up / Sign in | Email+password and OAuth (Google/GitHub) via Better Auth; verify email before first AI action | `users`, `sessions`, `accounts` (OAuth) | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `GET /auth/session` | `AuthForm`, `OAuthButtons`, `EmailVerifyBanner` | Public | P0 |
-| Password reset | Token-based reset flow, email delivery | `verification_tokens` | `POST /auth/forgot-password`, `POST /auth/reset-password` | `ResetForm` | Public | P0 |
-| Multi-factor auth | TOTP-based 2FA for account hardening | `users.mfa_secret`, `mfa_backup_codes` | `POST /auth/mfa/enable`, `POST /auth/mfa/verify` | `MfaSetupDialog` | Owner (self) | P1 |
+| Sign up / Sign in | Email+password only, custom JWT sessions; verify email before chat, uploads, and bookmarks (see [SECURITY.md](SECURITY.md)) | `users`, `sessions` | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `POST /auth/verify-email` | Sign-in/sign-up pages, inline verify-email banner in `account-menu.tsx` | Public | P0 |
+| OAuth (Google/GitHub) | Not implemented — no OAuth UI or provider integration exists | — | — | — | Public | P2 |
+| Password reset | Token-based reset flow, email delivery | `verification_tokens` | `POST /auth/forgot-password`, `POST /auth/reset-password` | `forgot-password`/`reset-password` pages | Public | P0 |
+| Multi-factor auth | TOTP + backup codes; disabling requires a valid code, not just a session token | `users.mfa_secret`, `mfa_backup_codes` | `POST /auth/mfa/enable`, `POST /auth/mfa/verify`, `POST /auth/mfa/challenge`, `POST /auth/mfa/disable` | `MfaCard` in `settings/page.tsx` | Owner (self) | P1 |
 | SSO/SAML | Enterprise identity federation | `sso_connections` | `POST /auth/sso/callback` | `SsoAdminPanel` | Org admin | P2 |
 
 ## Dashboard
