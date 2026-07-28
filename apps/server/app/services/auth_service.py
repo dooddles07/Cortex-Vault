@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +36,9 @@ async def sign_up(
         raise ConflictError("Email already registered")
 
     user = User(
-        email=payload.email, hashed_password=hash_password(payload.password), name=payload.name
+        email=payload.email,
+        hashed_password=await run_in_threadpool(hash_password, payload.password),
+        name=payload.name,
     )
     db.add(user)
     await db.commit()
@@ -55,7 +58,9 @@ async def sign_in(
         await audit_service.log(db, "sign_in_blocked_locked", user_id=user.id, ip=ip)
         raise UnauthorizedError("Account temporarily locked after too many failed attempts")
 
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user or not await run_in_threadpool(
+        verify_password, payload.password, user.hashed_password
+    ):
         if user:
             await _register_failed_attempt(db, user)
         await audit_service.log(db, "sign_in_failed", user_id=user.id if user else None, ip=ip)
@@ -149,7 +154,7 @@ async def reset_password(db: AsyncSession, token: str, new_password: str) -> Non
     user = await db.get(User, row.user_id)
     if not user:
         return
-    user.hashed_password = hash_password(new_password)
+    user.hashed_password = await run_in_threadpool(hash_password, new_password)
     user.failed_login_attempts = 0
     user.locked_until = None
     await db.commit()

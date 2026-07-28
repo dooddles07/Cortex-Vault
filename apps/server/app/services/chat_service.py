@@ -33,11 +33,14 @@ async def _consume(messages: list[dict[str, str]]) -> str:
     return text.strip()
 
 
-async def list_conversations(db: AsyncSession, user_id: uuid.UUID) -> list[Conversation]:
+async def list_conversations(
+    db: AsyncSession, user_id: uuid.UUID, limit: int = 50
+) -> list[Conversation]:
     stmt = (
         select(Conversation)
         .where(Conversation.user_id == user_id)
         .order_by(Conversation.updated_at.desc())
+        .limit(limit)
     )
     return list((await db.scalars(stmt)).all())
 
