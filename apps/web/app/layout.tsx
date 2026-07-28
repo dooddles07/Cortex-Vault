@@ -42,14 +42,14 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: "CortexVault",
-    images: [{ url: "/og-image.png", width: 1424, height: 752 }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 632 }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "CortexVault",
     description: DESCRIPTION,
-    images: ["/og-image.png"],
+    images: ["/og-image.jpg"],
   },
 };
 
