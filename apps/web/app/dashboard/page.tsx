@@ -32,7 +32,7 @@ const QUICK = [
 
 const STATS = [
   { key: "documents", label: "Documents", glyph: Library },
-  { key: "chunks", label: "Indexed chunks", glyph: Blocks },
+  { key: "chunks", label: "Snippets indexed", glyph: Blocks },
   { key: "conversations", label: "Conversations", glyph: MessageSquare },
 ] as const;
 
@@ -66,7 +66,7 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-h1 text-fg">Welcome back, {greetingName}</h2>
           <p className="text-body-sm text-fg-subtle">
-            Everything below is drawn from your own corpus.
+            Everything below is drawn from your own vault.
           </p>
         </div>
 

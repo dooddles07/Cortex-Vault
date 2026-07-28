@@ -62,9 +62,9 @@ export default function SignInPage() {
   return (
     <AuthLayout
       aside={{
-        headline: "Every answer cites the exact source chunk it came from.",
-        body: "CortexVault answers only from your own corpus. If it is not in your vault, it does not get said.",
-        proof: "hybrid retrieval · re-ranked · chunk-level citations",
+        headline: "Every answer cites the exact source it came from.",
+        body: "CortexVault answers only from your own vault. If it is not in there, it does not get said.",
+        proof: "keyword + semantic search · re-ranked · citations on every answer",
       }}
     >
       {mfaToken ? (

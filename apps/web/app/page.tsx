@@ -49,7 +49,7 @@ const DIFFERENTIATORS = [
   {
     glyph: Layers,
     title: "Ingests what others won't",
-    body: "Scanned PDFs through OCR, Office files, transcripts, web clips and code — all searchable in the same corpus, not siloed by type.",
+    body: "Scanned PDFs through OCR, Office files, transcripts, web clips and code — all searchable in the same vault, not siloed by type.",
   },
   {
     glyph: ServerCog,
@@ -59,7 +59,7 @@ const DIFFERENTIATORS = [
   {
     glyph: ShieldCheck,
     title: "Yours to leave with",
-    body: "Full export at every tier, including the free one. Your corpus is not the lock-in, and we would rather you could prove that.",
+    body: "Full export at every tier, including the free one. Your vault is not the lock-in, and we would rather you could prove that.",
   },
 ] as const;
 
