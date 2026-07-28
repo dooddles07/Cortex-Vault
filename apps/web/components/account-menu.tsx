@@ -77,7 +77,7 @@ export function AccountMenu() {
 
             <div className="flex flex-col gap-1 px-2 pb-2">
               <span className="text-overline text-fg-subtle">Theme</span>
-              <ThemeToggle />
+              <ThemeToggle compact />
             </div>
 
             <span aria-hidden className="mx-2 h-px bg-border" />
