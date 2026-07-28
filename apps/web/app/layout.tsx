@@ -4,6 +4,7 @@ import { ColdStartNotice } from "@/components/cold-start-notice";
 import { ThemeAccountSync } from "@/components/theme-account-sync";
 import { ToastProvider } from "@/components/ui/toast";
 import { AuthProvider } from "@/lib/auth";
+import { SITE_URL } from "@/lib/site";
 import { ThemeProvider, ThemeScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -29,7 +30,6 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
-const SITE_URL = "https://cortex-vault-web.vercel.app";
 const DESCRIPTION =
   "Your second brain, with receipts. Capture everything, then ask it anything - every answer cites the exact source chunk it came from.";
 

@@ -139,6 +139,23 @@ def test_conversation_is_scoped_to_its_owner(client, auth, inline_worker):
     assert client.get("/api/v1/conversations", headers=stranger).json() == []
 
 
+async def test_list_conversations_respects_limit(client, auth, db_session):
+    import uuid as _uuid
+
+    from app.models import Conversation
+    from app.services import chat_service
+
+    headers = auth()
+    user_id = _uuid.UUID(client.get("/api/v1/me", headers=headers).json()["id"])
+
+    for i in range(3):
+        db_session.add(Conversation(user_id=user_id, title=f"Convo {i}"))
+    await db_session.commit()
+
+    assert len(await chat_service.list_conversations(db_session, user_id)) == 3
+    assert len(await chat_service.list_conversations(db_session, user_id, limit=2)) == 2
+
+
 async def test_long_conversation_gets_a_summary(client, auth, inline_worker, db_session):
     """Once a conversation outgrows the raw history window (6 messages),
     older turns should be folded into conversations.summary rather than
