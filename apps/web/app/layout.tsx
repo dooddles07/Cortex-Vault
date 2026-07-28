@@ -29,10 +29,28 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+const SITE_URL = "https://cortex-vault-web.vercel.app";
+const DESCRIPTION =
+  "Your second brain, with receipts. Capture everything, then ask it anything - every answer cites the exact source chunk it came from.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "CortexVault",
-  description:
-    "Your second brain, with receipts. Capture everything, then ask it anything - every answer cites the exact source chunk it came from.",
+  description: DESCRIPTION,
+  openGraph: {
+    title: "CortexVault",
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: "CortexVault",
+    images: [{ url: "/og-image.png", width: 1424, height: 752 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CortexVault",
+    description: DESCRIPTION,
+    images: ["/og-image.png"],
+  },
 };
 
 export const viewport: Viewport = {
