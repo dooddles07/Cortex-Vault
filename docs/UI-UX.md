@@ -258,7 +258,7 @@ The first one is worth noting: it was invisible in code review and invisible in 
 
 ## 10. Open items
 
-- **Brand asset inconsistency.** `favicon.png` and `app-icon.png` carry a visibly different, heavier brain drawing than `icon.png` / `logo-primary.png`. The design system is built from the thin gradient mark used by the primary logo. Reconciling the set is brand work, not covered here.
+- **Brand asset inconsistency.** `favicon.png` / `app-icon.png` / `app/icon.png` / `app/apple-icon.png` all carry the heavier brain drawing; the design system is built from the thin gradient mark used by `logo-primary.png`. `app/icon.png` was also non-square (394x341, a real rendering bug) until 2026-07-28 — now a properly square 256x256 re-derived from `app-icon.png`, but still the heavier mark, not the thin one. Reconciling the two drawings is brand work, not covered here.
 - **Code Connect is blocked by plan tier** — needs a Dev/Full seat on Organization or Enterprise. Variable code syntax and component `CODE:` descriptions cover the handoff until then.
 - P1/P2 screens stay Figma-only by scope: Version history, Sharing, Workspace members, Notifications, Audit log table, Saved searches.
 - **The API has no chunk endpoint.** `SourcePreviewPane` gets `chunk_id`, `document_id` and `document_title` from a citation but no offsets, so a chat citation opens the whole document and says so. Search hits carry their own text, so those open with the retrieved excerpt highlighted. Closing this needs `GET /api/v1/chunks/{id}`.

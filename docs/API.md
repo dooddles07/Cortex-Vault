@@ -168,7 +168,7 @@ Trashed documents are excluded.
 | Method | Path | Notes |
 |---|---|---|
 | `POST` | `/chat` | `message`, `conversation_id?`. Returns `text/event-stream` |
-| `GET` | `/conversations` | List, newest first |
+| `GET` | `/conversations` | List, newest first, capped at 50 |
 | `GET` | `/conversations/{id}` | Conversation + full message history |
 | `DELETE` | `/conversations/{id}` | `204`; cascades to messages and citations |
 

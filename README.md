@@ -10,7 +10,7 @@ CortexVault is an AI-powered second brain built on Retrieval-Augmented Generatio
 
 ![CortexVault landing page](media/screenshot-landing.png)
 
-> **Status:** Backend implemented and deployed; frontend wired to it (auth, chat, search, uploads, vault, dashboard). The API (auth, documents, folders, tags, ingestion, hybrid search, RAG chat) is live and verified end-to-end. Ingestion handles PDF, `.docx`/`.pptx`/`.xlsx`, and OCR for scans/images; object storage is optional (Cloudflare R2). Collections, favorites, trash retention, search filters, and most P1 features are not built — see [ROADMAP.md](docs/ROADMAP.md) for the honest gap list.
+> **Status:** Live in production. Backend and frontend are both fully wired — auth (with MFA), documents, folders, tags, collections, favorites, hybrid search with filters, trash retention, and RAG chat all ship and are verified end-to-end. Ingestion handles PDF, `.docx`/`.pptx`/`.xlsx`, and OCR for scans/images; object storage is optional (Cloudflare R2). Nothing left unbuilt from the P0 (MVP) list — remaining gaps are P1/P2 features and documented engineering debt; see [ROADMAP.md](docs/ROADMAP.md) for the honest list.
 
 ## Why CortexVault
 

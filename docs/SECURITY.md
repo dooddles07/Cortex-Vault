@@ -4,7 +4,7 @@ What the current build actually enforces, and what it does not. Written to be ho
 
 ## Authentication
 
-Passwords are hashed with `bcrypt` (`gensalt()` default cost, per-password salt). Input is truncated to 72 bytes before hashing — bcrypt's hard limit, which `bcrypt>=4.1` raises on rather than silently truncating. Truncation is explicit in `app/core/security.py`.
+Passwords are hashed with `bcrypt` (`gensalt()` default cost, per-password salt). Input is truncated to 72 bytes before hashing — bcrypt's hard limit, which `bcrypt>=4.1` raises on rather than silently truncating. Truncation is explicit in `app/core/security.py`. `hash_password`/`verify_password` are synchronous and CPU-bound (deliberately slow), so every call site (`sign_up`, `sign_in`, `reset_password` in `app/services/auth_service.py`) runs them via `run_in_threadpool` rather than directly on the request coroutine — otherwise a single hash blocks the whole async worker for its duration.
 
 Tokens are HS256 JWTs carrying `sub` (user id), `jti` (session id), and `exp`, signed with `JWT_SECRET`, valid 7 days. Verification failures of any kind — bad signature, expiry, malformed — return `None` and surface as `401`.
 

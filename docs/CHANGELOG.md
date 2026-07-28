@@ -2,6 +2,23 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-28 (portfolio-readiness and perf pass)
+
+### Added
+- OpenGraph/Twitter social preview meta (`apps/web/app/layout.tsx`), backed by a compressed `og-image.jpg` (889KB source PNG down to ~51KB).
+- `app/robots.ts` and `app/sitemap.ts` — previously 404. Robots disallows the five authenticated app routes (`/chat`, `/dashboard`, `/search`, `/settings`, `/vault`) and allows marketing/auth.
+- `tests/test_integration_chat.py::test_list_conversations_respects_limit` — the `limit` param added below had no regression coverage.
+- `apps/web/lib/site.ts` — `SITE_URL` was hardcoded independently in three files; now one constant.
+
+### Fixed
+- `app/icon.png` was a non-square 394x341 favicon (a real bug — squished in browser tabs). Re-derived a proper square 256x256 icon and a 180x180 `apple-icon.png` from `media/app-icon.png`, both recompressed (110KB to 72KB and 39KB).
+- `hash_password`/`verify_password` ran synchronously inside async request handlers (`sign_up`, `sign_in`, `reset_password` in `app/services/auth_service.py`) — bcrypt is deliberately CPU-slow, so this stalled the single Render worker's event loop on every auth request. Now wrapped in `run_in_threadpool`, the same pattern already used for extraction/R2/bookmarks.
+- `chat_service.list_conversations` returned every conversation ever created with no cap. Now limited to 50 (configurable via the function's `limit` param).
+
+### Changed
+- README: added CI/license/live-demo badges and a live screenshot.
+- CortexVault's personal-portfolio project card refreshed with 5 new dark-theme screenshots (landing, dashboard, knowledge base, chat, search) captured against the live production deploy, replacing pre-redesign light-theme shots.
+
 ## 2026-07-27 (frontend design pass)
 
 ### Fixed
