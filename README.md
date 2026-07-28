@@ -2,7 +2,13 @@
 
 **Your knowledge. Instantly recalled.**
 
+[![CI](https://github.com/dooddles07/Cortex-Vault/actions/workflows/ci.yml/badge.svg)](https://github.com/dooddles07/Cortex-Vault/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Live](https://img.shields.io/badge/live-cortex--vault--web.vercel.app-success)](https://cortex-vault-web.vercel.app)
+
 CortexVault is an AI-powered second brain built on Retrieval-Augmented Generation (RAG). Collect documents, PDFs, notes, web pages, code, and more — then search and chat with your own knowledge using an assistant that answers only from what you've stored.
+
+![CortexVault landing page](media/screenshot-landing.png)
 
 > **Status:** Backend implemented and deployed; frontend wired to it (auth, chat, search, uploads, vault, dashboard). The API (auth, documents, folders, tags, ingestion, hybrid search, RAG chat) is live and verified end-to-end. Ingestion handles PDF, `.docx`/`.pptx`/`.xlsx`, and OCR for scans/images; object storage is optional (Cloudflare R2). Collections, favorites, trash retention, search filters, and most P1 features are not built — see [ROADMAP.md](docs/ROADMAP.md) for the honest gap list.
 
