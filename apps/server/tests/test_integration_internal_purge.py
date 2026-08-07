@@ -60,5 +60,11 @@ async def test_purge_removes_expired_trash_and_sessions(client, auth, db_session
     body = response.json()
     assert body["trashed_documents"] == 1
     assert body["sessions"] == 1
+
+    # The purge ran on the request's own DB session, a different connection
+    # than db_session. With expire_on_commit=False, db_session still holds
+    # its pre-purge copies in the identity map, so .get() would return them
+    # from memory instead of re-querying — expire_all() forces a fresh read.
+    db_session.expire_all()
     assert await db_session.get(Document, doc_id) is None
     assert await db_session.get(Session, stale_session.id) is None
