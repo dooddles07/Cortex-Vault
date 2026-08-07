@@ -2,6 +2,23 @@
 
 Notable changes to CortexVault, newest first. Grouped by day rather than semantic version — there is no version scheme yet (`package.json` stays at `0.1.0`); this is a pre-release solo project deployed straight to production. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-07 (production-readiness audit)
+
+### Added
+- **`GET /me/export`** — every row a user owns (documents, folders, tags, collections, conversations/messages/citations) as JSON, for GDPR Article 20 portability requests. Excludes auth/security bookkeeping (password hash, MFA secret, sessions, verification tokens, audit logs) — that's this system's access-control state, not data the user put in.
+- **`POST /internal/purge`** + `infra/purge-cron` — a Cloudflare Worker Cron Trigger (free tier) that gives trash/session purge a real daily schedule instead of only running opportunistically on API startup. Shared-secret gated (`INTERNAL_PURGE_TOKEN`, `secrets.compare_digest`); 404s when unset, so deploying it is fully optional and additive.
+- Frontend security headers (`apps/web/next.config.ts`) — CSP, `X-Frame-Options`, HSTS, `Permissions-Policy`, `poweredByHeader: false`. Previously only the API set these; the Next.js app had none.
+- `app/error.tsx` + `app/global-error.tsx` — branded error boundaries. A client-side crash previously fell through to Next's default (unstyled) error UI.
+- CI: `pip-audit` and `pnpm audit` (advisory, non-blocking — a freshly-disclosed transitive CVE shouldn't fail an unrelated build) and `pytest-cov` coverage reporting (`--cov=app --cov-report=term-missing`, no enforced floor yet).
+- SEO: JSON-LD structured data on the landing page (`SoftwareApplication` + `FAQPage`, built from the existing pricing tiers and "what it will and will not do" copy), a canonical URL, a real page title (`CortexVault — Your Second Brain, With Receipts` instead of bare `CortexVault`) with a title template for future per-page titles, and `priority`/`changeFrequency` on the sitemap.
+- README screenshot gallery — dashboard, knowledge base, chat, search, and settings, alongside the existing landing shot. All five captured live against production: a fresh sign-up, three seeded notes, a real hybrid search, and a real cited chat answer.
+
+### Fixed
+- `tests/test_integration_internal_purge.py` — the happy-path test read a `Session` row through a different DB connection than the one that deleted it; `expire_on_commit=False` meant the test's own session kept serving a stale cached copy instead of re-querying. Fixed with `expire_all()` before the final assertions. A second bug surfaced by that fix: `expire_all()` also expires the id attribute used in the assertion itself, and reading an expired attribute outside an async greenlet context raises `MissingGreenlet` — fixed by capturing the id before expiring.
+
+### Docs
+- ROADMAP.md, SECURITY.md, DATABASE.md, DEPLOYMENT.md, TESTING.md, API.md updated for all of the above. README screenshots refreshed.
+
 ## 2026-07-28 (portfolio-readiness and perf pass)
 
 ### Added

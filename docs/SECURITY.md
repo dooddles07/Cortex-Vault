@@ -96,11 +96,15 @@ The IP is read from `X-Forwarded-For` because Render terminates TLS upstream. Th
 
 **Without `REDIS_URL` the counters are per-process.** That is correct on Render free (a single instance) and wrong the moment the service scales out, since each instance would enforce its own budget.
 
+## Frontend
+
+The Next.js app sets its own security headers (`apps/web/next.config.ts`, independent of the API's): `X-Content-Type-Options`, `X-Frame-Options: DENY`, HSTS, `Permissions-Policy`, a CSP scoped to `'self'` plus the API origin for `connect-src`, and `poweredByHeader: false`. `app/error.tsx` and `app/global-error.tsx` give crashes a branded page instead of leaking Next's default error UI.
+
 ## Gaps
 
 Nothing left on the pre-production checklist that was in scope for this pass. Remaining, lower-priority:
 
-**Also missing:** WebAuthn/passkeys as an MFA alternative, request-size limits beyond `MAX_UPLOAD_BYTES`, and dependency scanning in CI.
+**Also missing:** WebAuthn/passkeys as an MFA alternative, request-size limits beyond `MAX_UPLOAD_BYTES`. Dependency scanning (`pip-audit`, `pnpm audit`) runs in CI but is advisory-only — see [TESTING.md](TESTING.md).
 
 ## Data handling
 

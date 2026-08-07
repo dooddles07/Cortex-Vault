@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of 2026-07-28. Priorities follow [FEATURES.md](FEATURES.md): **P0** = MVP, **P1** = v1, **P2** = v2+.
+Status as of 2026-08-07. Priorities follow [FEATURES.md](FEATURES.md): **P0** = MVP, **P1** = v1, **P2** = v2+.
 
 ## Shipped
 
@@ -21,10 +21,12 @@ Backend deployed and verified end-to-end in production.
 | Object storage | Cloudflare R2, optional — set `R2_*` or originals are discarded after text extraction, same as before |
 | Upload size limit | Streamed read rejects at `MAX_UPLOAD_BYTES` before buffering the full body |
 | Organization | Collections (`POST/GET/DELETE /collections`, document membership), favorites (`POST/DELETE /documents/:id/star`), search filters (type/folder/tag/date), trash retention purge (opportunistic on API startup — see engineering debt) |
-| Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset + resend (Resend) — tracked but not enforced on chat/uploads/bookmarks, see item 12, audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny), MFA (TOTP + 10 backup codes, `pyotp`) |
+| Security | Session-based token revocation (sign-out, password reset revokes all sessions), account lockout after 5 failed sign-ins, email verification + password reset + resend (Resend) — tracked but not enforced on chat/uploads/bookmarks, see item 12, audit logging (`audit_logs`, no read endpoint yet), security headers (HSTS/CSP/nosniff/frame-deny) on both the API and the Next.js frontend (`apps/web/next.config.ts`), MFA (TOTP + 10 backup codes, `pyotp`) |
 | RAG quality | Token-based chunking (`tiktoken`, replaces character counting), embedding cache (skips re-embedding unchanged content via `content_hash`), query rewriting (resolves pronouns against history before retrieval), conversation summarization (`conversations.summary`, replaces the hard 6-message cutoff), LLM-based re-ranking (chat only — reuses `CHAT_PROVIDER`, no new dependency) |
-| Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`), error tracking via Sentry (optional, `SENTRY_DSN`), bcrypt hashing/verification off the event loop (`run_in_threadpool`), `/conversations` capped at 50 |
-| SEO / social | OpenGraph and Twitter card meta, `robots.txt`, `sitemap.xml`, cold-start toast on the frontend when a request runs past 4s |
+| Ops | Connection pool size/overflow now explicit and configurable (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`), error tracking via Sentry (optional, `SENTRY_DSN`), bcrypt hashing/verification off the event loop (`run_in_threadpool`), `/conversations` capped at 50, scheduled trash/session purge via an optional Cloudflare Worker cron trigger (`infra/purge-cron` → `POST /internal/purge`), dependency vulnerability scanning (`pip-audit`, `pnpm audit`) and coverage reporting (`pytest-cov`) in CI |
+| Data portability | `GET /me/export` — every row a user owns, as JSON, for GDPR Article 20 requests |
+| SEO / social | OpenGraph and Twitter card meta, JSON-LD structured data (`SoftwareApplication` + `FAQPage`) on the landing page, canonical URL, `robots.txt`, `sitemap.xml` (with priority/changefreq), cold-start toast on the frontend when a request runs past 4s |
+| Frontend resilience | `app/error.tsx` + `app/global-error.tsx` — branded error boundaries instead of a bare Next.js crash screen |
 
 ## P0 — remaining MVP gaps
 

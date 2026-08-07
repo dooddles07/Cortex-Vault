@@ -72,8 +72,8 @@ Each integration module is anchored to a regression that reached production — 
 
 | Job | Steps |
 |---|---|
-| **Server** | `ruff check` → `pytest` against a real `pgvector/pgvector:pg17` service container |
-| **Web** | `pnpm typecheck` → `pnpm build` |
+| **Server** | `ruff check` → `pip-audit` (advisory, non-blocking) → `pytest --cov=app --cov-report=term-missing` against a real `pgvector/pgvector:pg17` service container |
+| **Web** | `pnpm audit` (advisory, non-blocking) → `pnpm typecheck` → `pnpm build` |
 
 The Postgres service is the point: **CI is where the integration suite actually runs.** Locally it skips unless Docker is up, so a green local run proves less than it looks like. Check the skip count.
 
@@ -86,7 +86,8 @@ Ruff's rule set is pinned explicitly in `pyproject.toml` (`E`, `F`, `I`, `B`, `S
 - **Redis itself is never exercised** — `inline_worker` bypasses the queue, so enqueue/consume behavior is untested.
 - **The bookmark saver's SSRF guard is tested against IP literals only** — no test makes a real network request, so DNS-based edge cases (rebinding, a hostname resolving to multiple addresses where only some are private) aren't exercised.
 - **OCR has no round-trip test** — `test_invalid_image_falls_back_to_needs_ocr` only proves the fallback path; nothing in the suite runs a real Tesseract pass, since CI installs the binary but no test currently feeds it a real scanned image.
-- **No coverage measurement.**
+- **Coverage is reported, not enforced.** `pytest-cov` runs in CI (`--cov=app --cov-report=term-missing`) so the number is visible in every run, but there's no `--cov-fail-under` gate — a plain local `pytest` run (no Docker) skips the integration suite, so a coverage floor would be meaningless there and noisy in CI.
+- **Dependency scans are advisory, not blocking.** `pip-audit` and `pnpm audit` run in CI but don't fail the build — a freshly-disclosed CVE in a transitive dependency shouldn't block an unrelated deploy. Read the job output; nothing pages on a new advisory yet.
 - **Playwright suite targets the web app only** and does not cover the API.
 - **Render is gated on CI; Vercel is not.** `cortexvault-api`'s Auto-Deploy is set to "After CI Checks Pass" (Settings → Deploy), so a red `Server (lint + tests)` run blocks the API deploy. Vercel has no equivalent native toggle — its own build step still blocks its own deploy on a failed `pnpm build`, which covers the case that matters most for a frontend.
 

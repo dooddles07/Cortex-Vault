@@ -72,6 +72,7 @@ curl -X POST $BASE/api/v1/auth/sign-up \
 |---|---|---|
 | `GET` | `/me` | Current user, including `email_verified` and `mfa_enabled` |
 | `PATCH` | `/me` | `name`, `theme_preference` (`system\|light\|dark`) |
+| `GET` | `/me/export` | Every row the user owns — documents, folders, tags, collections, conversations+messages+citations — as JSON. GDPR Article 20 portability. Excludes auth/security bookkeeping (password hash, MFA secret, sessions, verification tokens, audit logs) |
 
 ## Dashboard
 
@@ -195,6 +196,12 @@ curl -N -X POST $BASE/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"How does retrieval work?"}'
 ```
+
+## Internal
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/internal/purge` | Runs `purge_expired_trash` + `purge_old_sessions` on demand. Not part of the public API — gated on a shared-secret `X-Internal-Token` header (`INTERNAL_PURGE_TOKEN`), 404s when that's unset. Called by the optional Cloudflare Worker cron trigger in `infra/purge-cron`; see [DEPLOYMENT.md](DEPLOYMENT.md) |
 
 ## Not implemented
 
