@@ -57,6 +57,11 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Audit dependencies
+        # Advisory only: reports known CVEs without failing the build, since a
+        # freshly-disclosed advisory in a transitive dep shouldn't block deploys.
+        run: pip install pip-audit && pip-audit --skip-editable || true
+
       - name: Test
         # No provider keys: fake providers are autouse, so a test that reaches
         # for a real API fails here rather than silently spending quota.
@@ -83,6 +88,10 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies
+        # Advisory only, same rationale as the server job's pip-audit step.
+        run: pnpm audit --audit-level=high || true
 
       - name: Typecheck
         run: pnpm --filter @cortexvault/web typecheck
