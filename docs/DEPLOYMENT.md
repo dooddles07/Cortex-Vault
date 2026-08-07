@@ -1,12 +1,14 @@
 # Deployment
 
-Three free services, no credit card, no always-on worker.
+Three free services, no credit card, no always-on worker. A fourth, the
+Cloudflare Worker cron trigger, is optional.
 
 | Layer | Service | Plan | Region |
 |---|---|---|---|
 | Frontend | **Vercel** | Hobby | Global edge |
 | Backend | **Render** web service | Free | Singapore |
 | Database | **Neon** Postgres + pgvector | Free | Singapore |
+| Purge schedule (optional) | **Cloudflare Workers** cron trigger | Free | Global |
 
 Live: [cortex-vault-web.vercel.app](https://cortex-vault-web.vercel.app) → [cortexvault-api.onrender.com](https://cortexvault-api.onrender.com)
 
@@ -78,6 +80,19 @@ curl -s -D - -o /dev/null -X OPTIONS $API/api/v1/auth/sign-up \
 ```
 
 An `indexed / completed` ingest status is the single most informative check — it proves the database, migrations, pgvector, the HNSW index, and the embedding provider all work together.
+
+## Purge schedule — Cloudflare Workers (optional)
+
+Trash and expired-session purge run opportunistically on API startup by
+default (see [ARCHITECTURE.md](ARCHITECTURE.md)) — correct but not
+time-based. [`infra/purge-cron`](../infra/purge-cron) is a Cloudflare Worker
+Cron Trigger that calls `POST /api/v1/internal/purge` on a real daily
+schedule, free tier, no credit card. Deploying it is optional and additive:
+without `INTERNAL_PURGE_TOKEN` set on Render, the route 404s and the
+startup-only purge is exactly what runs, same as before.
+
+Setup: set `INTERNAL_PURGE_TOKEN` on Render (any random string), then follow
+[`infra/purge-cron/README.md`](../infra/purge-cron/README.md).
 
 ## Cold starts
 

@@ -8,6 +8,7 @@ from app.api.v1 import (
     dashboard,
     documents,
     folders,
+    internal,
     me,
     search,
     tags,
@@ -16,6 +17,7 @@ from app.api.v1 import (
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
+api_router.include_router(internal.router)
 api_router.include_router(me.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(documents.router)

@@ -1,0 +1,16 @@
+name = "cortexvault-purge-cron"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Daily at 03:00 UTC. Cloudflare Workers free tier includes cron triggers
+# (up to 3 per account) at no cost.
+[triggers]
+crons = ["0 3 * * *"]
+
+[vars]
+# Non-secret. Point at the deployed API, e.g. https://cortexvault-api.onrender.com
+API_URL = "http://localhost:8000"
+
+# Secret — set with:
+#   wrangler secret put INTERNAL_PURGE_TOKEN
+# Must match the API's INTERNAL_PURGE_TOKEN env var exactly.

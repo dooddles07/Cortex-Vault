@@ -8,6 +8,7 @@ os.environ.setdefault("DATABASE_URL", f"postgresql+asyncpg://{PG}/{TEST_DB}")
 os.environ.setdefault("DATABASE_URL_SYNC", f"postgresql+psycopg2://{PG}/{TEST_DB}")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("INTERNAL_PURGE_TOKEN", "test-internal-purge-token")
 
 # Production-tuned rate limits are far too low for a full integration run,
 # which signs up/chats/uploads across many tests sharing one bucket (every

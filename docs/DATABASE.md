@@ -149,7 +149,7 @@ Revision `0001_initial` runs `CREATE EXTENSION IF NOT EXISTS vector` before any 
 ## Operational notes
 
 - **Connection pool size is explicit now** (`DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`, default 5/10 — unchanged from SQLAlchemy's own defaults, just no longer invisible), plus `pool_pre_ping=True`. Still revisit when API replicas scale out — the ceiling itself hasn't moved, Postgres connection limits still bite before CPU does.
-- **Soft-delete cleanup runs, but opportunistically, not on a schedule.** `purge_expired_trash` (30-day window) runs once on API startup — see [ROADMAP.md](ROADMAP.md) engineering debt for why there's no real cron on the free tier.
+- **Soft-delete cleanup runs opportunistically on API startup by default**; an optional Cloudflare Worker cron trigger (`infra/purge-cron`) calls `POST /api/v1/internal/purge` daily instead — see [DEPLOYMENT.md](DEPLOYMENT.md).
 - **`content_hash` backs the embedding cache** (see above) but does not dedupe across *different* documents sharing identical content — only a single document's own re-ingest.
 - **No endpoint reads `audit_logs`.** There's no admin role in this single-tenant build to gate one behind, so today it's direct-database-access only.
-- **`sessions` rows past `expires_at` are purged 30 days later**, on the same opportunistic API-startup pass as trash (`session_service.purge_old_sessions`). The 30-day grace window past the token's own expiry is deliberate slack, not precision.
+- **`sessions` rows past `expires_at` are purged 30 days later**, on the same schedule as trash (`session_service.purge_old_sessions`). The 30-day grace window past the token's own expiry is deliberate slack, not precision.

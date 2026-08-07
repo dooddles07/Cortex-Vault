@@ -110,7 +110,7 @@ Nothing left on the pre-production checklist that was in scope for this pass. Re
 
 Prompt injection is unmitigated: ingested documents become model context, so a document containing instructions can influence answers. The system prompt constrains the model to answer only from context, which limits but does not eliminate this.
 
-Deletion is soft by default (`deleted_at`); the 30-day window in [FEATURES.md](FEATURES.md) is enforced by `purge_expired_trash`, which runs opportunistically on API startup rather than a real schedule — see [ROADMAP.md](ROADMAP.md) engineering debt. There is no data export, so GDPR access and erasure requests cannot currently be served.
+Deletion is soft by default (`deleted_at`); the 30-day window in [FEATURES.md](FEATURES.md) is enforced by `purge_expired_trash`, which runs opportunistically on API startup by default, or daily via an optional Cloudflare Worker cron trigger — see [DEPLOYMENT.md](DEPLOYMENT.md). There is no data export, so GDPR access and erasure requests cannot currently be served.
 
 ## Reporting
 

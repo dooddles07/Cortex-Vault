@@ -68,7 +68,10 @@ jobs:
         env:
           TEST_PG: postgres:postgres@localhost:5432
           JWT_SECRET: ci-secret
-        run: pytest -q
+        # Report only, no --cov-fail-under: local runs skip integration tests
+        # without Docker, so a coverage floor would be meaningless there and
+        # noisy here — this just makes the number visible in CI logs.
+        run: pytest -q --cov=app --cov-report=term-missing
 
   web:
     name: Web (typecheck + build)

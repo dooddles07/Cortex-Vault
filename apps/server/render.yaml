@@ -57,3 +57,8 @@ services:
       # Optional — error tracking. Omit and failures stay Render-log-only.
       - key: SENTRY_DSN
         sync: false
+      # Optional — gates POST /internal/purge for the Cloudflare Worker cron
+      # trigger (see infra/purge-cron). Omit and the route 404s; trash/session
+      # purge stays opportunistic (API-startup only), same as before.
+      - key: INTERNAL_PURGE_TOKEN
+        sync: false
