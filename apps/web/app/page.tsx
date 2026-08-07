@@ -124,10 +124,43 @@ const LIMITS = [
   },
 ] as const;
 
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "CortexVault",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description:
+        "Grounded RAG knowledge base. Capture documents, notes, PDFs and bookmarks, then ask questions — every answer cites the exact source chunk it came from.",
+      offers: TIERS.filter((t) => t.price.startsWith("$")).map((t) => ({
+        "@type": "Offer",
+        name: t.name,
+        price: t.price.slice(1),
+        priceCurrency: "USD",
+      })),
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: LIMITS.map((item) => ({
+        "@type": "Question",
+        name: item.q,
+        acceptedAnswer: { "@type": "Answer", text: item.a },
+      })),
+    },
+  ],
+};
+
 export default function LandingPage() {
   // Marketing runs dark. The app shell has its own theme control.
   return (
     <div data-theme="dark" className="min-h-dvh bg-bg text-fg">
+      <script
+        type="application/ld+json"
+        // Static data from TIERS/LIMITS above, not user input - safe to inline.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       <header className="sticky top-0 z-(--z-header) border-b border-border/60 bg-bg/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-(--layout-content-max) items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2">

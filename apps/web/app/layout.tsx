@@ -33,12 +33,15 @@ const mono = JetBrains_Mono({
 const DESCRIPTION =
   "Your second brain, with receipts. Capture everything, then ask it anything - every answer cites the exact source chunk it came from.";
 
+const TITLE = "CortexVault — Your Second Brain, With Receipts";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "CortexVault",
+  title: { default: TITLE, template: "%s · CortexVault" },
   description: DESCRIPTION,
+  alternates: { canonical: SITE_URL },
   openGraph: {
-    title: "CortexVault",
+    title: TITLE,
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: "CortexVault",
@@ -47,7 +50,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "CortexVault",
+    title: TITLE,
     description: DESCRIPTION,
     images: ["/og-image.jpg"],
   },
