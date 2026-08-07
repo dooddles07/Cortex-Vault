@@ -110,7 +110,7 @@ Nothing left on the pre-production checklist that was in scope for this pass. Re
 
 Prompt injection is unmitigated: ingested documents become model context, so a document containing instructions can influence answers. The system prompt constrains the model to answer only from context, which limits but does not eliminate this.
 
-Deletion is soft by default (`deleted_at`); the 30-day window in [FEATURES.md](FEATURES.md) is enforced by `purge_expired_trash`, which runs opportunistically on API startup by default, or daily via an optional Cloudflare Worker cron trigger — see [DEPLOYMENT.md](DEPLOYMENT.md). There is no data export, so GDPR access and erasure requests cannot currently be served.
+Deletion is soft by default (`deleted_at`); the 30-day window in [FEATURES.md](FEATURES.md) is enforced by `purge_expired_trash`, which runs opportunistically on API startup by default, or daily via an optional Cloudflare Worker cron trigger — see [DEPLOYMENT.md](DEPLOYMENT.md). `GET /api/v1/me/export` serves GDPR Article 20 portability requests — every document, folder, tag, collection, and conversation the user owns, as JSON; excludes auth/security bookkeeping (password hash, MFA secret, sessions, verification tokens, audit logs). There is still no erasure endpoint (account + all owned rows, cascade-deleted) — only the export half is built.
 
 ## Reporting
 
