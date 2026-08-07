@@ -50,6 +50,10 @@ async def test_purge_removes_expired_trash_and_sessions(client, auth, db_session
     )
     db_session.add(stale_session)
     await db_session.commit()
+    # Captured before expire_all() below marks it expired too — reading a
+    # plain attribute off an expired instance tries a synchronous lazy-load
+    # with no greenlet context and raises MissingGreenlet.
+    stale_session_id = stale_session.id
 
     response = client.post(
         "/api/v1/internal/purge",
@@ -67,4 +71,4 @@ async def test_purge_removes_expired_trash_and_sessions(client, auth, db_session
     # from memory instead of re-querying — expire_all() forces a fresh read.
     db_session.expire_all()
     assert await db_session.get(Document, doc_id) is None
-    assert await db_session.get(Session, stale_session.id) is None
+    assert await db_session.get(Session, stale_session_id) is None
